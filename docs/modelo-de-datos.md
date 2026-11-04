@@ -41,3 +41,32 @@ El **stock no es un campo** de Product: se calcula sumando los movimientos de in
 - Que dos productos puedan tener el mismo nombre (hoy no hay restricción).
 - Si el comercio usa un código o código de barras por producto (hoy no hay campo).
 - Si hace falta guardar el precio de costo (se agregaría con Compras o Reportes, cuando se necesite).
+
+## Módulo 8 (parte) – Usuarios y sesiones
+
+### User (Usuario)
+
+| Campo | Tipo | Detalle |
+|---|---|---|
+| id | entero, clave primaria | autoincremental |
+| username | texto | nombre para entrar; único. Se guarda en minúsculas |
+| fullName | texto | nombre de la persona, para mostrar |
+| passwordHash | texto | hash de la contraseña (nunca la contraseña) |
+| active | verdadero/falso, por defecto verdadero | un usuario dado de baja no puede entrar |
+| createdAt, updatedAt | fecha y hora | los completa el sistema |
+
+### Session (Sesión)
+
+| Campo | Tipo | Detalle |
+|---|---|---|
+| id | entero, clave primaria | autoincremental |
+| tokenHash | texto | hash del código de la cookie; único |
+| userId | entero, clave foránea → User | si se borra el usuario, se borran sus sesiones |
+| expiresAt | fecha y hora | cuándo vence la sesión |
+| createdAt | fecha y hora | cuándo se abrió |
+
+### Por qué está en 3FN
+
+- Cada tabla tiene clave de un solo campo (`id`), así que se cumple 2FN.
+- Los datos del usuario (nombre, hash) están solo en User; Session apunta con `userId` y no repite el nombre del usuario (3FN).
+- No hay roles ni permisos guardados: todos los usuarios son propietarios (decisión D4).

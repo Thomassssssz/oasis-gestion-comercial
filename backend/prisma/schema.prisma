@@ -31,3 +31,28 @@ model Product {
 
   @@index([categoryId])
 }
+
+// Persona que usa el sistema (por ahora, los propietarios). No hay roles: todos tienen los mismos permisos (D4).
+// La contraseña NUNCA se guarda: solo su hash (D9).
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique
+  fullName     String
+  passwordHash String
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
+}
+
+// Sesión abierta de un usuario. Se guarda el hash del código de la cookie, no el código (D9).
+model Session {
+  id        Int      @id @default(autoincrement())
+  tokenHash String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}

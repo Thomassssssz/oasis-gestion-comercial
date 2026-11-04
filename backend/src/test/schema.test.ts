@@ -40,4 +40,36 @@ describe("esquema de la base de datos", () => {
     expect(product.minStock).toBe(0);
     expect(product.active).toBe(true);
   });
+
+  it("no permite dos usuarios con el mismo nombre de usuario", async () => {
+    await prisma.user.create({ data: { username: "ana", fullName: "Ana", passwordHash: "x" } });
+
+    await expect(
+      prisma.user.create({ data: { username: "ana", fullName: "Otra Ana", passwordHash: "y" } }),
+    ).rejects.toThrow();
+  });
+
+  it("no permite una sesión de un usuario que no existe", async () => {
+    await expect(
+      prisma.session.create({ data: { tokenHash: "abc", userId: 999, expiresAt: new Date() } }),
+    ).rejects.toThrow();
+  });
+
+  it("borra las sesiones de un usuario cuando se borra el usuario", async () => {
+    const user = await prisma.user.create({ data: { username: "ana", fullName: "Ana", passwordHash: "x" } });
+    await prisma.session.create({ data: { tokenHash: "abc", userId: user.id, expiresAt: new Date() } });
+
+    await prisma.user.delete({ where: { id: user.id } });
+
+    expect(await prisma.session.count()).toBe(0);
+  });
+
+  it("no permite repetir el código de sesión", async () => {
+    const user = await prisma.user.create({ data: { username: "ana", fullName: "Ana", passwordHash: "x" } });
+    await prisma.session.create({ data: { tokenHash: "abc", userId: user.id, expiresAt: new Date() } });
+
+    await expect(
+      prisma.session.create({ data: { tokenHash: "abc", userId: user.id, expiresAt: new Date() } }),
+    ).rejects.toThrow();
+  });
 });
