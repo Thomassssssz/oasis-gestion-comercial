@@ -1,8 +1,8 @@
 import express from "express";
 import { errorHandler } from "./middlewares/error.middleware.js";
 import type { PrismaClient } from "./config/prisma.js";
-import { createCategoriesRouter } from "./modules/categories/categories.routes.js";
-import { healthRouter } from "./modules/health/health.routes.js";
+import { createCategoryRouter } from "./routes/category.routes.js";
+import { healthRouter } from "./routes/health.routes.js";
 import { createProductsRouter } from "./modules/products/products.routes.js";
 
 type AppDeps = { prisma: PrismaClient };
@@ -18,7 +18,7 @@ export function createApp({ prisma }: AppDeps) {
   app.use(express.json());
 
   app.use("/api/health", healthRouter);
-  app.use("/api/categories", createCategoriesRouter(prisma));
+  app.use("/api/categories", createCategoryRouter(prisma));
   app.use("/api/products", createProductsRouter(prisma));
 
   // Cualquier ruta que no exista responde 404 en formato JSON.

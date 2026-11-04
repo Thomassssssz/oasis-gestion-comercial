@@ -1,12 +1,12 @@
-import { conflict, notFound } from "../../helpers/errors.js";
-import { hasPrismaCode } from "../../helpers/prisma-errors.js";
-import type { CategoriesRepository } from "./categories.repository.js";
+import { conflict, notFound } from "../helpers/errors.js";
+import { hasPrismaCode } from "../helpers/prisma-errors.js";
+import type { CategoryRepository } from "../repositories/category.repository.js";
 
 const DUPLICATE_NAME = "Ya existe una categoría con ese nombre";
 const NOT_FOUND = "La categoría no existe";
 
 // Reglas de negocio de las categorías. No sabe nada de HTTP ni de Prisma más allá de sus errores.
-export function createCategoriesService(repository: CategoriesRepository) {
+export function createCategoryService(repository: CategoryRepository) {
   return {
     list: () => repository.findAll(),
 
@@ -56,3 +56,5 @@ export function createCategoriesService(repository: CategoriesRepository) {
     },
   };
 }
+
+export type CategoryService = ReturnType<typeof createCategoryService>;

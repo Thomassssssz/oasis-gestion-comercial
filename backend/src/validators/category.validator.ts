@@ -9,9 +9,4 @@ export const categoryInputSchema = z.object({
     .max(100, "El nombre puede tener hasta 100 caracteres"),
 });
 
-// El :id de la URL llega como texto; se convierte y valida como entero positivo.
-export const idParamSchema = z.object({
-  id: z.coerce.number({ error: "El identificador no es válido" }).int("El identificador no es válido").positive("El identificador no es válido"),
-});
-
 export type CategoryInput = z.infer<typeof categoryInputSchema>;

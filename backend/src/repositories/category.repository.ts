@@ -1,7 +1,7 @@
-import type { PrismaClient } from "../../config/prisma.js";
+import type { PrismaClient } from "../config/prisma.js";
 
 // Acceso a datos: es la única capa de categorías que habla con la base.
-export function createCategoriesRepository(prisma: PrismaClient) {
+export function createCategoryRepository(prisma: PrismaClient) {
   return {
     findAll: () => prisma.category.findMany({ orderBy: { name: "asc" } }),
     findById: (id: number) => prisma.category.findUnique({ where: { id } }),
@@ -12,4 +12,4 @@ export function createCategoriesRepository(prisma: PrismaClient) {
   };
 }
 
-export type CategoriesRepository = ReturnType<typeof createCategoriesRepository>;
+export type CategoryRepository = ReturnType<typeof createCategoryRepository>;
