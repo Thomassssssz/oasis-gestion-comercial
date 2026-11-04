@@ -1,20 +1,33 @@
 # API REST
 
 Base: `http://localhost:3000/api`. Todas las respuestas son JSON.
-**Todavía no hay login:** hasta que se construya el módulo de usuarios, los endpoints no están protegidos. No usar con datos reales ni exponer a internet.
+**Hay login:** todas las rutas, salvo `/health` y `/auth/login`, exigen una sesión abierta (cookie `oasis_session`); sin ella responden 401. El login todavía necesita una revisión de seguridad antes de usar datos reales (ver D9 en `decisiones.md`).
 
 ## Formato de errores
 
 | Código | Cuándo | Cuerpo |
 |---|---|---|
 | 400 | Datos inválidos | `{ "error": "Datos inválidos", "details": [{ "field": "name", "message": "..." }] }` |
+| 401 | No hay sesión abierta, o el usuario o la contraseña son incorrectos | `{ "error": "..." }` |
 | 404 | No existe el recurso o la ruta | `{ "error": "..." }` |
 | 409 | Choca con una regla (por ejemplo, nombre repetido) | `{ "error": "..." }` |
+| 429 | Demasiados intentos fallidos de login | `{ "error": "..." }` |
 | 500 | Error inesperado del servidor | `{ "error": "Error interno del servidor" }` |
 
 ## Salud
 
 - `GET /health` → `200 { "status": "ok" }`
+
+## Autenticación
+
+| Método y ruta | Qué hace | Respuestas |
+|---|---|---|
+| `POST /auth/login` | Abre una sesión. Cuerpo: `{ "username", "password" }`. Entrega la cookie de sesión y devuelve `{ id, username, fullName }` | 200, 400, 401, 429 |
+| `POST /auth/logout` | Cierra la sesión actual (responde 204 aunque no haya una) | 204 |
+| `GET /auth/me` | Devuelve el usuario de la sesión actual | 200, 401 |
+| `POST /auth/change-password` | Cambia la contraseña. Cuerpo: `{ "currentPassword", "newPassword" }`. Cierra las demás sesiones | 204, 400, 401 |
+
+Reglas: el usuario no distingue mayúsculas; la contraseña nueva tiene entre 10 y 128 caracteres y tiene que ser distinta de la actual; después de 5 intentos fallidos para un usuario en 15 minutos, el login responde 429 por un rato; la sesión dura 12 horas. Para el mismo error (usuario inexistente, dado de baja o contraseña incorrecta) se da el mismo mensaje, para no revelar qué usuarios existen.
 
 ## Categorías
 

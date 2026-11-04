@@ -30,9 +30,9 @@ export function createApp({ prisma, loginLimiter = createLoginLimiter(), now }: 
   app.use("/api/health", healthRouter);
   // Login y compañía: cada ruta decide si exige sesión.
   app.use("/api/auth", createAuthRouter(authService, requireAuth));
-  // Por ahora categorías y productos siguen abiertos; el siguiente commit les exige sesión.
-  app.use("/api/categories", createCategoryRouter(prisma));
-  app.use("/api/products", createProductRouter(prisma));
+  // Privadas: sin sesión válida responden 401.
+  app.use("/api/categories", requireAuth, createCategoryRouter(prisma));
+  app.use("/api/products", requireAuth, createProductRouter(prisma));
 
   // Cualquier ruta que no exista responde 404 en formato JSON.
   app.use((_req, res) => {
