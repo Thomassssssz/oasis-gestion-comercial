@@ -12,8 +12,6 @@ const priceSchema = z
       .refine((value) => Number(value) > 0, "El precio debe ser mayor que cero"),
   );
 
-const idMessage = "El identificador no es válido";
-
 // Datos para crear un producto. Siempre nace activo.
 export const productInputSchema = z.object({
   name: z
@@ -36,10 +34,6 @@ export const productInputSchema = z.object({
 // Para editar se envían todos los datos, más si el producto está activo o dado de baja.
 export const productUpdateSchema = productInputSchema.extend({
   active: z.boolean({ error: "Indicá si el producto está activo" }),
-});
-
-export const idParamSchema = z.object({
-  id: z.coerce.number({ error: idMessage }).int(idMessage).positive(idMessage),
 });
 
 // Filtros opcionales del listado: /api/products?search=lapi&categoryId=2&active=true

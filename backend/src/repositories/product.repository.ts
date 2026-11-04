@@ -1,11 +1,11 @@
-import type { PrismaClient } from "../../config/prisma.js";
-import type { ListQuery, ProductInput, ProductUpdate } from "./products.schemas.js";
+import type { PrismaClient } from "../config/prisma.js";
+import type { ListQuery, ProductInput, ProductUpdate } from "../validators/product.validator.js";
 
 // Cada producto se devuelve con el nombre de su categoría.
 const withCategory = { category: { select: { id: true, name: true } } } as const;
 
 // Acceso a datos: es la única capa de productos que habla con la base.
-export function createProductsRepository(prisma: PrismaClient) {
+export function createProductRepository(prisma: PrismaClient) {
   return {
     findAll: ({ search, categoryId, active }: ListQuery) =>
       prisma.product.findMany({
@@ -24,5 +24,5 @@ export function createProductsRepository(prisma: PrismaClient) {
   };
 }
 
-export type ProductsRepository = ReturnType<typeof createProductsRepository>;
-export type ProductRecord = NonNullable<Awaited<ReturnType<ProductsRepository["findById"]>>>;
+export type ProductRepository = ReturnType<typeof createProductRepository>;
+export type ProductRecord = NonNullable<Awaited<ReturnType<ProductRepository["findById"]>>>;

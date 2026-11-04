@@ -1,7 +1,7 @@
 import request from "supertest";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../../app.js";
-import { createTestPrisma, resetDatabase } from "../../../tests/helpers/db.js";
+import { createApp } from "../src/app.js";
+import { createTestPrisma, resetDatabase } from "./helpers/db.js";
 
 const prisma = createTestPrisma();
 const app = createApp({ prisma });

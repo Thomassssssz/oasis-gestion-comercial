@@ -1,7 +1,7 @@
-import { badRequest, notFound } from "../../helpers/errors.js";
-import { hasPrismaCode } from "../../helpers/prisma-errors.js";
-import type { ProductRecord, ProductsRepository } from "./products.repository.js";
-import type { ListQuery, ProductInput, ProductUpdate } from "./products.schemas.js";
+import { badRequest, notFound } from "../helpers/errors.js";
+import { hasPrismaCode } from "../helpers/prisma-errors.js";
+import type { ProductRecord, ProductRepository } from "../repositories/product.repository.js";
+import type { ListQuery, ProductInput, ProductUpdate } from "../validators/product.validator.js";
 
 const NOT_FOUND = "El producto no existe";
 const CATEGORY_NOT_FOUND = "La categoría indicada no existe";
@@ -12,7 +12,7 @@ function toDto(product: ProductRecord) {
 }
 
 // Reglas de negocio de los productos. Un producto no se borra: se da de baja (active = false).
-export function createProductsService(repository: ProductsRepository) {
+export function createProductService(repository: ProductRepository) {
   return {
     async list(query: ListQuery) {
       return (await repository.findAll(query)).map(toDto);
@@ -44,3 +44,5 @@ export function createProductsService(repository: ProductsRepository) {
     },
   };
 }
+
+export type ProductService = ReturnType<typeof createProductService>;
