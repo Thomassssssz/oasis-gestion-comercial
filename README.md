@@ -48,6 +48,18 @@ npm run dev
 La API queda escuchando en http://localhost:3000 y se reinicia sola al guardar cambios.
 Para comprobar que funciona, abrí http://localhost:3000/api/health: debe responder `{"status":"ok"}`.
 
+### Base de datos (Prisma)
+
+La API usa PostgreSQL a través de Prisma. Con el contenedor de la sección anterior corriendo, dentro de `backend/`:
+
+1. Copiá `.env.example` como `.env` y completá `DATABASE_URL` y `TEST_DATABASE_URL` con tu usuario y contraseña (los mismos del `.env` de la raíz).
+2. Creá la base de pruebas, que es aparte y se vacía en cada corrida. Desde la raíz del proyecto: `docker compose exec db psql -U <usuario> -d postgres -c "CREATE DATABASE oasis_test"`.
+3. Aplicá las migraciones a la base de desarrollo, dentro de `backend/`: `npm run db:migrate`.
+4. Aplicá las migraciones a la base de pruebas: `npm run db:test:deploy`.
+
+El cliente de Prisma se genera solo al correr `npm install` (carpeta `src/generated/`, que no se sube al repositorio).
+El modelo de datos está explicado en `docs/modelo-de-datos.md`.
+
 Otros comandos útiles (siempre dentro de `backend/`):
 
 - `npm test`: corre las pruebas (Vitest + Supertest).
