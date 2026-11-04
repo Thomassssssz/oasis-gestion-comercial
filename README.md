@@ -24,10 +24,21 @@ docs/       documentación y decisiones del proyecto
 
 React, Vite, TypeScript, Node.js, Express, PostgreSQL, Prisma, Tailwind CSS, shadcn/ui, Zod, Recharts, Lucide, Vitest y Supertest.
 
+## Base de datos de desarrollo
+
+Requiere [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+
+1. Copiá la plantilla de variables y completá tus valores (en PowerShell: `copy .env.example .env`).
+2. Levantá la base: `docker compose up -d`
+3. Comprobá que esté lista: `docker compose ps` (el estado debe decir `healthy`).
+4. Para apagarla sin perder datos: `docker compose down`. Con `docker compose down -v` se borran también los datos.
+
+La base escucha solo en `127.0.0.1` (tu propia computadora), puerto 5432 por defecto.
+
 ## Estado
 
-En construcción. Esta rama contiene solo la estructura inicial del repositorio.
-Las instrucciones para ejecutar el proyecto se agregarán a medida que existan.
+En construcción. Por ahora el repositorio tiene la estructura inicial y la base de datos de desarrollo.
+Las instrucciones para ejecutar el resto del proyecto se agregarán a medida que existan.
 
 ## Seguridad
 
