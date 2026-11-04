@@ -9,6 +9,13 @@ const messages: Record<ApiState, string> = {
   error: 'Sin conexión con la API',
 }
 
+// Colores de la etiqueta de estado según el resultado de la consulta.
+const statusStyles: Record<ApiState, string> = {
+  loading: 'bg-gray-200 text-gray-700',
+  connected: 'bg-emerald-100 text-emerald-800',
+  error: 'bg-red-100 text-red-800',
+}
+
 export default function App() {
   const [apiState, setApiState] = useState<ApiState>('loading')
 
@@ -31,9 +38,12 @@ export default function App() {
   }, [])
 
   return (
-    <main className="app">
-      <h1>Oasis – Gestión Comercial</h1>
-      <p className={`api-status api-status--${apiState}`} role="status">
+    <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+      <h1 className="mb-4 text-3xl font-bold">Oasis – Gestión Comercial</h1>
+      <p
+        className={`inline-block rounded-full px-4 py-1.5 font-semibold ${statusStyles[apiState]}`}
+        role="status"
+      >
         {messages[apiState]}
       </p>
     </main>
