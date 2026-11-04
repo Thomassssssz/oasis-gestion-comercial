@@ -1,8 +1,17 @@
 import { createApp } from "./app.js";
+import { loadEnv } from "./config/env.js";
+import { createPrismaClient } from "./lib/prisma.js";
 
-// El puerto se puede cambiar con la variable de entorno PORT.
-const port = Number(process.env.PORT ?? 3000);
+// Carga backend/.env si existe (en producción las variables vienen del entorno).
+try {
+  process.loadEnvFile();
+} catch {
+  // Sin .env: se usan las variables que ya tenga el entorno.
+}
 
-createApp().listen(port, () => {
-  console.log(`API de Oasis escuchando en http://localhost:${port}`);
+const env = loadEnv();
+const prisma = createPrismaClient(env.DATABASE_URL);
+
+createApp({ prisma }).listen(env.PORT, () => {
+  console.log(`API de Oasis escuchando en http://localhost:${env.PORT}`);
 });
