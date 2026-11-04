@@ -76,7 +76,7 @@ npm install
 npm run dev
 ```
 
-Abrí http://localhost:5173. La pantalla consulta `/api/health` y muestra "API conectada" si el backend responde, o "Sin conexión con la API" si no.
+Abrí http://localhost:5173. Arriba a la derecha se ve "API conectada" si el backend responde, o "Sin conexión con la API" (con un botón para reintentar) si no. Hoy hay dos pantallas: **Productos** (lista con búsqueda y filtros, alta, edición y baja) y **Categorías** (alta, edición y borrado). Para que funcionen, el backend tiene que estar conectado a la base (ver la sección anterior).
 Los estilos se escriben con clases de Tailwind CSS (v4, integrado a Vite con `@tailwindcss/vite`), directamente en los componentes.
 Los componentes de interfaz siguen la convención de shadcn/ui: viven en `src/components/ui/` y se importan con el atajo `@/` (por ejemplo `@/components/ui/button`). Para agregar otro componente se puede usar `npx shadcn@latest add <nombre>`; `components.json` ya está configurado. Los íconos son de Lucide.
 Vite redirige los pedidos que empiezan con `/api` hacia http://localhost:3000, por eso no hace falta configurar CORS en desarrollo.
@@ -90,7 +90,7 @@ Comandos útiles (siempre dentro de `frontend/`):
 
 ## Estado
 
-En construcción. Por ahora el repositorio tiene la estructura inicial, la base de datos de desarrollo, un backend mínimo con un endpoint de salud y un frontend mínimo que lo consulta.
+En construcción, por módulos. Hecho: estructura inicial, base de datos de desarrollo, API con endpoint de salud, y el módulo 1 (Productos y categorías) completo, con su API, su pantalla y pruebas. Los demás módulos se agregan de a uno; las decisiones de diseño están en `docs/decisiones.md`.
 Las instrucciones para ejecutar el resto del proyecto se agregarán a medida que existan.
 
 ## Seguridad
