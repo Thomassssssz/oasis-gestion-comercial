@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
 
@@ -56,5 +56,28 @@ describe('App', () => {
     render(<App />)
 
     expect(await screen.findByText('Sin conexión con la API')).toBeInTheDocument()
+  })
+
+  it('no muestra el botón "Reintentar" cuando la API está conectada', async () => {
+    mockFetch(Response.json({ status: 'ok' }))
+    render(<App />)
+
+    await screen.findByText('API conectada')
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument()
+  })
+
+  it('vuelve a consultar y se conecta al tocar "Reintentar"', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('red caída'))
+      .mockResolvedValueOnce(Response.json({ status: 'ok' }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+
+    await screen.findByText('Sin conexión con la API')
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+
+    expect(await screen.findByText('API conectada')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 })
