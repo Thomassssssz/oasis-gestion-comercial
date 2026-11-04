@@ -19,15 +19,23 @@ Es a la vez un sistema real para el comercio y el Trabajo Integrador de Práctic
 ## Estructura
 
 ```
-frontend/   React + Vite + TypeScript. Una carpeta por módulo en src/features/
-backend/    Express + TypeScript + Prisma. Módulos en src/modules/, con capas:
-            rutas -> servicio (reglas de negocio) -> acceso a datos; validación con Zod
+frontend/   React + Vite + TypeScript, ordenado por tipo de archivo (como SITGI)
+backend/    Express + TypeScript + Prisma, ordenado por tipo de archivo (como SITGI)
 docs/       documentación y decisiones
 ```
 
+Backend (`backend/src/`), una carpeta por tipo de archivo y nombres `<nombre>.<tipo>.ts` en singular
+(`category.routes.ts`, `category.controller.ts`...). Una petición recorre las capas así:
+`routes` (qué URL existe) -> `controllers` (valida con Zod y arma la respuesta) -> `services` (reglas de negocio) -> `repositories` (consultas a la base).
+Además: `config/` (variables de entorno, cliente de Prisma), `helpers/` (funciones auxiliares), `middlewares/`, `validators/` (esquemas Zod), `scripts/`.
+Las tablas ("models") se definen en `backend/prisma/schema.prisma`. Las pruebas van todas juntas en `backend/tests/`.
+
+Frontend (`frontend/src/`): `pages/` (una pantalla por sección), `components/` (piezas reutilizables; `ui/` es shadcn/ui, `layout/` la estructura de la pantalla),
+`services/` (llamadas a la API), `types/`, `utils/`, `lib/` (utilidades de shadcn/ui). Las pruebas del frontend van junto al archivo que prueban (`*.test.tsx`).
+
 Son dos proyectos npm independientes (cada uno con su `package.json`). Gestor de paquetes: **npm**.
 El backend usa ESM con `module: NodeNext`: los imports relativos llevan extensión `.js` (por ejemplo `import { x } from "./x.js"`), aunque el archivo sea `.ts`.
-El frontend usa Vite en modo bundler: los imports relativos llevan extensión del archivo real (`./App.tsx`, `./lib/api.ts`). En desarrollo, Vite redirige `/api` a `http://localhost:3000` (proxy en `vite.config.ts`), así que el frontend llama a rutas relativas como `/api/health`.
+El frontend usa Vite en modo bundler y el atajo `@/` apunta a `frontend/src/` (por ejemplo `@/services/api/client`). En desarrollo, Vite redirige `/api` a `http://localhost:3000` (proxy en `vite.config.ts`), así que el frontend llama a rutas relativas como `/api/health`.
 Versiones en la PC del autor: Node 24 y npm 11. Los tipos de Node (`@types/node`) se mantienen en la misma versión mayor que el Node real (24).
 PostgreSQL de desarrollo en Docker (`docker-compose.yml`, solo la base de datos).
 

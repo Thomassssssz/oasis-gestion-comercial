@@ -20,6 +20,31 @@ backend/    Node.js + Express + TypeScript + Prisma
 docs/       documentación y decisiones del proyecto
 ```
 
+Dentro de cada proyecto, el código está ordenado por **tipo de archivo**:
+
+```
+backend/
+  prisma/          tablas (schema.prisma) y migraciones
+  src/
+    config/        variables de entorno y conexión a la base
+    helpers/       funciones auxiliares (errores, contraseñas)
+    middlewares/   pasos que corren antes o después de las rutas
+    validators/    validación de los datos que llegan (Zod)
+    routes/        qué URL existe
+    controllers/   qué responde cada URL
+    services/      reglas de negocio
+    repositories/  consultas a la base de datos
+    scripts/       tareas por línea de comandos
+  tests/           todas las pruebas del backend
+
+frontend/src/
+  pages/           una pantalla por sección
+  components/      piezas reutilizables (ui/ = shadcn/ui, layout/ = estructura)
+  services/        llamadas a la API
+  types/           tipos de TypeScript
+  utils/           funciones auxiliares
+```
+
 ## Tecnologías
 
 React, Vite, TypeScript, Node.js, Express, PostgreSQL, Prisma, Tailwind CSS, shadcn/ui, Zod, Recharts, Lucide, Vitest y Supertest.
