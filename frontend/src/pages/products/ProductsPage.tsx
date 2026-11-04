@@ -8,7 +8,7 @@ import { listProducts, updateProduct } from '@/services/products/product.service
 import type { Category } from '@/types/category.types'
 import type { Product, ProductFilters } from '@/types/product.types'
 import { describeError } from '@/utils/errors'
-import ProductForm from './ProductForm'
+import ProductForm from '@/components/products/ProductForm'
 
 const peso = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' })
 

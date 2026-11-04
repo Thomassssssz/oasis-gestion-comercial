@@ -1,26 +1,13 @@
-import { RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import Header from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
 import { getHealth } from '@/services/health/health.service'
 import { cn } from '@/lib/utils'
-import CategoriesPage from '@/features/categories/CategoriesPage'
-import ProductsPage from '@/features/products/ProductsPage'
+import CategoriesPage from '@/pages/categories/CategoriesPage'
+import ProductsPage from '@/pages/products/ProductsPage'
+import type { ApiState } from '@/types/api.types'
 
-type ApiState = 'loading' | 'connected' | 'error'
 type Section = 'products' | 'categories'
-
-const messages: Record<ApiState, string> = {
-  loading: 'Consultando la API…',
-  connected: 'API conectada',
-  error: 'Sin conexión con la API',
-}
-
-// Colores de la etiqueta de estado según el resultado de la consulta.
-const statusStyles: Record<ApiState, string> = {
-  loading: 'bg-gray-200 text-gray-700',
-  connected: 'bg-emerald-100 text-emerald-800',
-  error: 'bg-red-100 text-red-800',
-}
 
 const sections: { id: Section; label: string }[] = [
   { id: 'products', label: 'Productos' },
@@ -58,23 +45,7 @@ export default function App() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
-        <h1 className="text-2xl font-bold">Oasis – Gestión Comercial</h1>
-        <div className="flex items-center gap-2">
-          <p
-            className={`rounded-full px-3 py-1 text-sm font-semibold ${statusStyles[apiState]}`}
-            role="status"
-          >
-            {messages[apiState]}
-          </p>
-          {apiState === 'error' && (
-            <Button variant="outline" size="sm" onClick={retry}>
-              <RefreshCw />
-              Reintentar
-            </Button>
-          )}
-        </div>
-      </header>
+      <Header apiState={apiState} onRetry={retry} />
 
       <nav aria-label="Secciones" className="mb-6 flex gap-2">
         {sections.map(({ id, label }) => (
