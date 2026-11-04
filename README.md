@@ -66,6 +66,7 @@ npm run dev
 
 Abrí http://localhost:5173. La pantalla consulta `/api/health` y muestra "API conectada" si el backend responde, o "Sin conexión con la API" si no.
 Los estilos se escriben con clases de Tailwind CSS (v4, integrado a Vite con `@tailwindcss/vite`), directamente en los componentes.
+Los componentes de interfaz siguen la convención de shadcn/ui: viven en `src/components/ui/` y se importan con el atajo `@/` (por ejemplo `@/components/ui/button`). Para agregar otro componente se puede usar `npx shadcn@latest add <nombre>`; `components.json` ya está configurado. Los íconos son de Lucide.
 Vite redirige los pedidos que empiezan con `/api` hacia http://localhost:3000, por eso no hace falta configurar CORS en desarrollo.
 
 Comandos útiles (siempre dentro de `frontend/`):
