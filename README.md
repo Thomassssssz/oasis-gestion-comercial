@@ -54,9 +54,29 @@ Otros comandos útiles (siempre dentro de `backend/`):
 - `npm run typecheck`: revisa los tipos de TypeScript sin compilar.
 - `npm run build` y `npm start`: compila a `dist/` y ejecuta la versión compilada.
 
+## Frontend
+
+Requiere Node.js 22 o superior y el backend corriendo en el puerto 3000 (ver la sección anterior). En otra terminal:
+
+```
+cd frontend
+npm install
+npm run dev
+```
+
+Abrí http://localhost:5173. La pantalla consulta `/api/health` y muestra "API conectada" si el backend responde, o "Sin conexión con la API" si no.
+Vite redirige los pedidos que empiezan con `/api` hacia http://localhost:3000, por eso no hace falta configurar CORS en desarrollo.
+
+Comandos útiles (siempre dentro de `frontend/`):
+
+- `npm test`: corre las pruebas (Vitest + Testing Library).
+- `npm run lint`: revisa el código con oxlint.
+- `npm run typecheck`: revisa los tipos de TypeScript.
+- `npm run build`: genera la versión para producción en `dist/`.
+
 ## Estado
 
-En construcción. Por ahora el repositorio tiene la estructura inicial, la base de datos de desarrollo y un backend mínimo con un endpoint de salud.
+En construcción. Por ahora el repositorio tiene la estructura inicial, la base de datos de desarrollo, un backend mínimo con un endpoint de salud y un frontend mínimo que lo consulta.
 Las instrucciones para ejecutar el resto del proyecto se agregarán a medida que existan.
 
 ## Seguridad
