@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createTestPrisma } from "./db.js";
+import { createTestPrisma } from "./helpers/db.js";
 
 // El freno de seguridad: las pruebas nunca deben poder borrar la base real.
 describe("createTestPrisma", () => {

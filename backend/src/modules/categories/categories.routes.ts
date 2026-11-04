@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { PrismaClient } from "../../lib/prisma.js";
+import type { PrismaClient } from "../../config/prisma.js";
 import { categoryInputSchema, idParamSchema } from "./categories.schemas.js";
 import { createCategoriesRepository } from "./categories.repository.js";
 import { createCategoriesService } from "./categories.service.js";

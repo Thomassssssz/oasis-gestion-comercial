@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { createTestPrisma, resetDatabase } from "./db.js";
+import { createTestPrisma, resetDatabase } from "./helpers/db.js";
 
 // Comprueba que la base real (creada por la migración) cumple las reglas del modelo.
 const prisma = createTestPrisma();

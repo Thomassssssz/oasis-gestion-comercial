@@ -1,4 +1,4 @@
-import type { PrismaClient } from "../../lib/prisma.js";
+import type { PrismaClient } from "../../config/prisma.js";
 
 // Acceso a datos: es la única capa de categorías que habla con la base.
 export function createCategoriesRepository(prisma: PrismaClient) {

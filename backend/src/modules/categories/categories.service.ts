@@ -1,5 +1,5 @@
-import { conflict, notFound } from "../../lib/errors.js";
-import { hasPrismaCode } from "../../lib/prisma-errors.js";
+import { conflict, notFound } from "../../helpers/errors.js";
+import { hasPrismaCode } from "../../helpers/prisma-errors.js";
 import type { CategoriesRepository } from "./categories.repository.js";
 
 const DUPLICATE_NAME = "Ya existe una categoría con ese nombre";

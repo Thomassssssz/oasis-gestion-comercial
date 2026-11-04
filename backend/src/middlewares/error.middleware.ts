@@ -1,6 +1,6 @@
 import type { ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
-import { AppError } from "./errors.js";
+import { AppError } from "../helpers/errors.js";
 
 // Convierte cualquier error en una respuesta JSON con el código HTTP correcto.
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {

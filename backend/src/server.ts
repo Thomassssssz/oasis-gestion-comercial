@@ -1,6 +1,6 @@
 import { createApp } from "./app.js";
 import { loadEnv } from "./config/env.js";
-import { createPrismaClient } from "./lib/prisma.js";
+import { createPrismaClient } from "./config/prisma.js";
 
 // Carga backend/.env si existe (en producción las variables vienen del entorno).
 try {

@@ -1,5 +1,5 @@
-import { badRequest, notFound } from "../../lib/errors.js";
-import { hasPrismaCode } from "../../lib/prisma-errors.js";
+import { badRequest, notFound } from "../../helpers/errors.js";
+import { hasPrismaCode } from "../../helpers/prisma-errors.js";
 import type { ProductRecord, ProductsRepository } from "./products.repository.js";
 import type { ListQuery, ProductInput, ProductUpdate } from "./products.schemas.js";
 

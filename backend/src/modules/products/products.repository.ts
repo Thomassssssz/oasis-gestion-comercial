@@ -1,4 +1,4 @@
-import type { PrismaClient } from "../../lib/prisma.js";
+import type { PrismaClient } from "../../config/prisma.js";
 import type { ListQuery, ProductInput, ProductUpdate } from "./products.schemas.js";
 
 // Cada producto se devuelve con el nombre de su categoría.

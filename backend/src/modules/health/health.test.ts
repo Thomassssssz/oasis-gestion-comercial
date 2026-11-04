@@ -1,7 +1,7 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../app.js";
-import { createPrismaClient } from "../../lib/prisma.js";
+import { createPrismaClient } from "../../config/prisma.js";
 
 // /api/health no consulta la base, así que este cliente nunca llega a conectarse.
 const app = createApp({ prisma: createPrismaClient("postgresql://nadie@localhost:1/ninguna") });

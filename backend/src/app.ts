@@ -1,6 +1,6 @@
 import express from "express";
-import { errorHandler } from "./lib/error-handler.js";
-import type { PrismaClient } from "./lib/prisma.js";
+import { errorHandler } from "./middlewares/error.middleware.js";
+import type { PrismaClient } from "./config/prisma.js";
 import { createCategoriesRouter } from "./modules/categories/categories.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { createProductsRouter } from "./modules/products/products.routes.js";

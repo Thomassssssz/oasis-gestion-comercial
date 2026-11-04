@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadEnv } from "./env.js";
+import { loadEnv } from "../src/config/env.js";
 
 describe("loadEnv", () => {
   it("lee DATABASE_URL y usa el puerto 3000 por defecto", () => {

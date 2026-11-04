@@ -1,4 +1,4 @@
-import { createPrismaClient } from "../lib/prisma.js";
+import { createPrismaClient } from "../../src/config/prisma.js";
 
 // Devuelve un cliente conectado a la base de PRUEBAS.
 // Las pruebas borran datos, así que se frena si la URL podría apuntar a la base real.
