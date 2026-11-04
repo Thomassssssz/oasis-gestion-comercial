@@ -27,3 +27,17 @@ Base: `http://localhost:3000/api`. Todas las respuestas son JSON.
 | `DELETE /categories/:id` | Borra una categoría sin productos | 204, 400, 404, 409 |
 
 Reglas: el nombre es obligatorio, se le quitan los espacios de los costados, tiene hasta 100 caracteres y no puede repetirse (se distingue entre mayúsculas y minúsculas). Una categoría con productos no se puede borrar.
+
+## Productos
+
+| Método y ruta | Qué hace | Respuestas |
+|---|---|---|
+| `GET /products` | Lista, ordenados por nombre, cada uno con su categoría. Filtros opcionales: `search` (parte del nombre), `categoryId`, `active` (`true` o `false`) | 200, 400 |
+| `GET /products/:id` | Devuelve uno | 200, 400, 404 |
+| `POST /products` | Crea uno activo. Cuerpo: `{ "name", "categoryId", "salePrice", "minStock" }` | 201, 400 |
+| `PUT /products/:id` | Cambia todos los datos. Cuerpo: igual que al crear, más `"active": true/false` | 200, 400, 404 |
+
+No hay `DELETE`: un producto se da de baja con `"active": false`, para no perder su historial.
+
+Reglas: el nombre es obligatorio (hasta 150 caracteres); la categoría tiene que existir (400 si no); el precio es un importe mayor que cero con hasta 2 decimales y se devuelve como texto con 2 decimales (`"1500.50"`); el stock mínimo es un entero de 0 en adelante (0 por defecto). El stock actual no es parte del producto: se calcula desde los movimientos de inventario (módulo siguiente).
+

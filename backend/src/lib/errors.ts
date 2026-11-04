@@ -8,5 +8,6 @@ export class AppError extends Error {
   }
 }
 
+export const badRequest = (message: string) => new AppError(400, message);
 export const notFound = (message: string) => new AppError(404, message);
 export const conflict = (message: string) => new AppError(409, message);

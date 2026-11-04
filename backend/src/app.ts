@@ -3,6 +3,7 @@ import { errorHandler } from "./lib/error-handler.js";
 import type { PrismaClient } from "./lib/prisma.js";
 import { createCategoriesRouter } from "./modules/categories/categories.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
+import { createProductsRouter } from "./modules/products/products.routes.js";
 
 type AppDeps = { prisma: PrismaClient };
 
@@ -18,6 +19,7 @@ export function createApp({ prisma }: AppDeps) {
 
   app.use("/api/health", healthRouter);
   app.use("/api/categories", createCategoriesRouter(prisma));
+  app.use("/api/products", createProductsRouter(prisma));
 
   // Cualquier ruta que no exista responde 404 en formato JSON.
   app.use((_req, res) => {
