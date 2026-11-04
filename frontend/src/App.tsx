@@ -1,7 +1,7 @@
 import { RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { getHealth } from '@/lib/api.ts'
+import { getHealth } from '@/services/health/health.service'
 import { cn } from '@/lib/utils'
 import CategoriesPage from '@/features/categories/CategoriesPage'
 import ProductsPage from '@/features/products/ProductsPage'

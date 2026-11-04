@@ -2,8 +2,9 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { describeError } from '@/lib/api'
-import { createCategory, deleteCategory, listCategories, updateCategory, type Category } from './api'
+import { createCategory, deleteCategory, listCategories, updateCategory } from '@/services/categories/category.service'
+import type { Category } from '@/types/category.types'
+import { describeError } from '@/utils/errors'
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[] | null>(null)

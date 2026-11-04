@@ -1,24 +1,5 @@
-import { apiRequest } from '@/lib/api'
-
-export type Product = {
-  id: number
-  name: string
-  categoryId: number
-  category: { id: number; name: string }
-  salePrice: string // importe como texto con 2 decimales, ej.: "1500.50"
-  minStock: number
-  active: boolean
-}
-
-// Datos que se envían para crear o editar un producto.
-export type ProductFormData = {
-  name: string
-  categoryId: number
-  salePrice: string
-  minStock: number
-}
-
-export type ProductFilters = { search: string; categoryId: string; status: 'active' | 'inactive' | 'all' }
+import { apiRequest } from '@/services/api/client'
+import type { Product, ProductFilters, ProductFormData } from '@/types/product.types'
 
 // Arma el texto de filtros (?search=...&active=true) solo con los que tienen valor.
 function toQueryString({ search, categoryId, status }: ProductFilters) {

@@ -2,9 +2,10 @@ import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import { describeError } from '@/lib/api'
-import type { Category } from '../categories/api'
-import { createProduct, updateProduct, type Product } from './api'
+import { createProduct, updateProduct } from '@/services/products/product.service'
+import type { Category } from '@/types/category.types'
+import type { Product } from '@/types/product.types'
+import { describeError } from '@/utils/errors'
 
 type Props = {
   product: Product | null // null = producto nuevo

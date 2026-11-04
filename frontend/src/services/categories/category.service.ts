@@ -1,6 +1,5 @@
-import { apiRequest } from '@/lib/api'
-
-export type Category = { id: number; name: string }
+import { apiRequest } from '@/services/api/client'
+import type { Category } from '@/types/category.types'
 
 export const listCategories = () => apiRequest<Category[]>('/categories')
 
