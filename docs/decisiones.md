@@ -30,3 +30,40 @@ Las decisiones que dependen de los propietarios del comercio se marcan como **a 
 - **Por qué:** es lo único definido hasta ahora; no se asumen roles que nadie pidió.
 - **Alternativa descartada:** dos roles (administrador y empleado).
 - **Nota:** si más adelante se necesitan roles, se agregan sin rehacer el login.
+
+## D5 – La alerta de stock mínimo salta con "igual o menor"
+
+- **Decisión:** un producto está en alerta cuando su stock es **menor o igual** a su stock mínimo.
+- **Por qué:** avisa a tiempo para reponer, antes de quedarse sin mercadería.
+- **Alternativa descartada:** alertar solo cuando el stock es menor al mínimo.
+
+## D6 – Las cantidades de stock son siempre unidades enteras
+
+- **Decisión:** el stock y los movimientos se miden en unidades enteras (1, 2, 3).
+- **Por qué:** es lo habitual en una librería y simplifica el modelo.
+- **Alternativa descartada:** cantidades con decimales (metros, kilos), que obligarían a definir una unidad de medida por producto.
+- **A confirmar con los propietarios:** si hay productos que se venden por medida.
+
+## D7 – Los ajustes manuales de stock llevan un motivo de una lista fija
+
+- **Decisión:** un ajuste manual se registra con un motivo elegido de una lista: conteo físico, rotura o pérdida, devolución a proveedor y otro (con una nota).
+- **Por qué:** permite analizar las diferencias de stock en los reportes.
+- **Alternativa descartada:** motivo en texto libre.
+- **A confirmar con los propietarios:** si la lista de motivos alcanza.
+
+## D8 – Primero usuarios y login, después inventario
+
+- **Decisión:** se construye el módulo de usuarios y login antes que inventario y ventas.
+- **Por qué:** así cada movimiento y cada venta guardan desde el principio quién la realizó (auditoría), y se cierra el hecho de que la API hoy está abierta a cualquiera.
+- **Alternativa descartada:** inventario primero y login después (los movimientos quedarían sin usuario y habría que completarlos).
+
+## D9 – Cómo funciona el login (propuesta de Claude, a revisar por el autor)
+
+Esta decisión de diseño la propuso Claude y no fue elegida entre opciones por el autor; hay que revisarla y poder defenderla.
+
+- **Contraseñas:** se guardan solo como hash con `scrypt` (incluido en Node, sin librerías extra), con una sal aleatoria por contraseña. La contraseña original nunca se guarda ni se muestra.
+- **Sesión:** al entrar, el servidor genera un código aleatorio, guarda en la base solo su hash SHA-256 y entrega el código en una cookie `HttpOnly` y `SameSite=Lax` (el código JavaScript de la página no puede leerla). La sesión dura 12 horas y se puede cerrar desde el servidor.
+- **Límite de intentos:** después de 5 intentos fallidos para un mismo usuario en 15 minutos, el login se bloquea por un rato.
+- **Usuarios nuevos:** no hay registro público. Los usuarios se crean con un script de línea de comandos (por ahora, los dos propietarios).
+- **Alternativas descartadas:** JWT sin estado (no se puede cerrar una sesión desde el servidor) y librerías externas de hash como bcrypt o argon2 (más dependencias que compilar).
+- **Límites conocidos:** el límite de intentos está en memoria del servidor (se reinicia si se reinicia el servidor) y no hay recuperación de contraseña por correo. Antes de uso comercial real, el login requiere revisión de seguridad.
