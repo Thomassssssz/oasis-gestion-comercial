@@ -35,9 +35,28 @@ Requiere [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
 La base escucha solo en `127.0.0.1` (tu propia computadora), puerto 5432 por defecto.
 
+## Backend (API)
+
+Requiere Node.js 22 o superior. Desde la carpeta del proyecto:
+
+```
+cd backend
+npm install
+npm run dev
+```
+
+La API queda escuchando en http://localhost:3000 y se reinicia sola al guardar cambios.
+Para comprobar que funciona, abrí http://localhost:3000/api/health: debe responder `{"status":"ok"}`.
+
+Otros comandos útiles (siempre dentro de `backend/`):
+
+- `npm test`: corre las pruebas (Vitest + Supertest).
+- `npm run typecheck`: revisa los tipos de TypeScript sin compilar.
+- `npm run build` y `npm start`: compila a `dist/` y ejecuta la versión compilada.
+
 ## Estado
 
-En construcción. Por ahora el repositorio tiene la estructura inicial y la base de datos de desarrollo.
+En construcción. Por ahora el repositorio tiene la estructura inicial, la base de datos de desarrollo y un backend mínimo con un endpoint de salud.
 Las instrucciones para ejecutar el resto del proyecto se agregarán a medida que existan.
 
 ## Seguridad

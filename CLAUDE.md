@@ -26,6 +26,8 @@ docs/       documentación y decisiones
 ```
 
 Son dos proyectos npm independientes (cada uno con su `package.json`). Gestor de paquetes: **npm**.
+El backend usa ESM con `module: NodeNext`: los imports relativos llevan extensión `.js` (por ejemplo `import { x } from "./x.js"`), aunque el archivo sea `.ts`.
+Versiones en la PC del autor: Node 24 y npm 11. Los tipos de Node (`@types/node`) se mantienen en la misma versión mayor que el Node real (24).
 PostgreSQL de desarrollo en Docker (`docker-compose.yml`, solo la base de datos).
 
 ## Stack acordado
