@@ -12,6 +12,14 @@ export class ApiError extends Error {
   }
 }
 
+// Función a la que se avisa cuando la API responde 401 (no hay sesión o venció).
+// La registra el contexto de autenticación para volver a la pantalla de login.
+let unauthorizedHandler: (() => void) | null = null
+
+export function setUnauthorizedHandler(handler: (() => void) | null) {
+  unauthorizedHandler = handler
+}
+
 type RequestOptions = { method?: 'GET' | 'POST' | 'PUT' | 'DELETE'; body?: unknown }
 
 // Hace un pedido a la API (las rutas empiezan con /api) y devuelve la respuesta como JSON.
@@ -22,6 +30,8 @@ export async function apiRequest<T>(path: string, { method = 'GET', body }: Requ
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   })
+
+  if (response.status === 401) unauthorizedHandler?.()
 
   if (response.status === 204) return undefined as T
 
