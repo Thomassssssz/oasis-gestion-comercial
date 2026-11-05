@@ -6,6 +6,7 @@ import CategoriesPage from '@/pages/categories/CategoriesPage'
 import InventoryPage from '@/pages/inventory/InventoryPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import ProductsPage from '@/pages/products/ProductsPage'
+import SalesPage from '@/pages/sales/SalesPage'
 
 // Mapa de direcciones de la app. Todo lo que está dentro de ProtectedRoute exige sesión abierta.
 export default function AppRoutes() {
@@ -18,6 +19,7 @@ export default function AppRoutes() {
           <Route path="/productos" element={<ProductsPage />} />
           <Route path="/categorias" element={<CategoriesPage />} />
           <Route path="/inventario" element={<InventoryPage />} />
+          <Route path="/ventas" element={<SalesPage />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFoundPage />} />

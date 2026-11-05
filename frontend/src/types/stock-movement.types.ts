@@ -1,4 +1,8 @@
-export type MovementType = 'INITIAL_STOCK' | 'ADJUSTMENT'
+// Tipos que muestra el historial. Venta y anulación de venta los crea el módulo de ventas.
+export type MovementType = 'INITIAL_STOCK' | 'ADJUSTMENT' | 'SALE' | 'SALE_ANNULMENT'
+
+// Los únicos tipos que se pueden registrar a mano desde Inventario.
+export type RegistrableMovementType = 'INITIAL_STOCK' | 'ADJUSTMENT'
 
 export type AdjustmentReason = 'PHYSICAL_COUNT' | 'DAMAGE_OR_LOSS' | 'SUPPLIER_RETURN' | 'OTHER'
 
@@ -11,6 +15,7 @@ export type StockMovement = {
   quantity: number // positivo = entró mercadería, negativo = salió
   reason: AdjustmentReason | null
   note: string | null
+  saleId: number | null // la venta que lo originó (solo venta y anulación de venta)
   userId: number
   userName: string
   createdAt: string

@@ -4,9 +4,9 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { registerMovement } from '@/services/stock-movements/stock-movement.service'
 import type { Product } from '@/types/product.types'
-import type { AdjustmentReason, MovementInput, MovementType } from '@/types/stock-movement.types'
+import type { AdjustmentReason, MovementInput, RegistrableMovementType } from '@/types/stock-movement.types'
 import { describeError } from '@/utils/errors'
-import { adjustmentReasonLabels, movementTypeLabels } from '@/utils/stock-labels'
+import { adjustmentReasonLabels, movementTypeLabels, registrableTypes } from '@/utils/stock-labels'
 
 type Props = {
   products: Product[]
@@ -19,7 +19,7 @@ type Props = {
 // y sus mensajes se muestran tal cual.
 export default function MovementForm({ products, onSaved, onCancel }: Props) {
   const [productId, setProductId] = useState('')
-  const [type, setType] = useState<MovementType>('INITIAL_STOCK')
+  const [type, setType] = useState<RegistrableMovementType>('INITIAL_STOCK')
   const [quantity, setQuantity] = useState('')
   const [reason, setReason] = useState<AdjustmentReason>('PHYSICAL_COUNT')
   const [note, setNote] = useState('')
@@ -62,8 +62,8 @@ export default function MovementForm({ products, onSaved, onCancel }: Props) {
 
       <label className="grid gap-1 text-sm">
         Tipo de movimiento
-        <Select value={type} onChange={(e) => setType(e.target.value as MovementType)}>
-          {(Object.keys(movementTypeLabels) as MovementType[]).map((value) => (
+        <Select value={type} onChange={(e) => setType(e.target.value as RegistrableMovementType)}>
+          {registrableTypes.map((value) => (
             <option key={value} value={value}>
               {movementTypeLabels[value]}
             </option>

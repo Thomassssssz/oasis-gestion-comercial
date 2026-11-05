@@ -27,6 +27,7 @@ const movimiento = (id: number, extra: object = {}) => ({
   quantity: 10,
   reason: null,
   note: null,
+  saleId: null,
   userId: 1,
   userName: 'Ana Propietaria',
   createdAt: '2026-11-04T15:30:00.000Z',
