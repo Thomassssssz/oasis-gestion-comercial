@@ -54,3 +54,19 @@ No hay `DELETE`: un producto se da de baja con `"active": false`, para no perder
 
 Reglas: el nombre es obligatorio (hasta 150 caracteres); la categoría tiene que existir (400 si no); el precio es un importe mayor que cero con hasta 2 decimales y se devuelve como texto con 2 decimales (`"1500.50"`); el stock mínimo es un entero de 0 en adelante (0 por defecto). El stock actual no es parte del producto: se calcula desde los movimientos de inventario (módulo siguiente).
 
+
+## Movimientos de stock
+
+Requieren sesión (401 si no hay). El stock de un producto es la suma de las cantidades de sus movimientos (D1).
+
+| Método y ruta | Qué hace | Respuestas |
+|---|---|---|
+| `GET /stock-movements` | Lista del más nuevo al más viejo, con el nombre del producto y de quien lo registró. Filtros opcionales: `productId`, `limit` (de 1 a 200, 50 por defecto) | 200, 400 |
+| `POST /stock-movements` | Registra un movimiento y devuelve el movimiento con el `stock` que quedó | 201, 400, 404, 409 |
+
+Cuerpo de `POST` según el tipo:
+
+- Stock inicial: `{ "type": "INITIAL_STOCK", "productId", "quantity", "note" }`. La cantidad es un entero mayor que cero. Solo se puede cargar si el producto todavía no tiene movimientos (409 si ya tiene).
+- Ajuste: `{ "type": "ADJUSTMENT", "productId", "quantity", "reason", "note" }`. La cantidad es un entero distinto de cero: positiva suma y negativa resta. `reason` es uno de `PHYSICAL_COUNT` (conteo físico), `DAMAGE_OR_LOSS` (rotura o pérdida), `SUPPLIER_RETURN` (devolución a proveedor) u `OTHER` (otro). Con `OTHER`, `note` es obligatoria.
+
+Reglas: la `note` es opcional (hasta 500 caracteres). Un ajuste no puede dejar el stock en negativo (409 con el stock actual en el mensaje). Un producto que no existe responde 404. Quién registró el movimiento sale de la sesión, nunca del cuerpo del pedido. No hay `PUT` ni `DELETE`: un movimiento no se edita ni se borra, un error se corrige con otro movimiento (D12).
