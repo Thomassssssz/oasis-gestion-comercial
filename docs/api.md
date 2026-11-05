@@ -123,7 +123,7 @@ Reglas: el porcentaje va de 0 a 100 con hasta 2 decimales y punto decimal (la co
 
 | Método y ruta | Qué hace | Respuestas |
 |---|---|---|
-| `GET /settings/business` | Devuelve `{ "name", "owner", "address", "taxCondition", "cuit", "grossIncome", "activityStart", "updatedAt", "updatedBy" }`. Mientras nadie los cargue, todos los datos son `null`: el sistema no trae ningún dato del comercio de fábrica | 200 |
+| `GET /settings/business` | Devuelve `{ "name", "owner", "address", "taxCondition", "cuit", "grossIncome", "activityStart", "updatedAt", "updatedBy" }`. Una migración los carga con el encabezado del remito en papel (nombre, titular, domicilio, condición e inicio de actividades) y con un CUIT e Ingresos Brutos **de ejemplo** (`20-12345678-9`, `01-20-12345678-9`); si alguien los vacía quedan en `null` | 200 |
 | `PUT /settings/business` | Reemplaza todos los datos del comercio. Cuerpo: los mismos siete campos (todos opcionales; lo que no se envía queda vacío) | 200, 400 |
 
 Reglas: `name` y `owner` hasta 100 caracteres, `address` hasta 300 (admite varias líneas), `grossIncome` (número de Ingresos Brutos) hasta 30, `taxCondition` y `cuit` como en Clientes, `activityStart` (inicio de actividades) texto libre hasta 30 caracteres, tal como figura en el papel (por ejemplo `03/2011`: el remito solo trae mes y año). No toca el recargo por mora. Un texto vacío o de solo espacios se guarda como sin dato.

@@ -196,10 +196,10 @@ Esta tabla todavía no se relaciona con otras: las ventas con cliente y las cuen
 |---|---|---|
 | id | entero, clave primaria | siempre vale 1: la base de datos solo admite una fila (D16-a) |
 | lateFeePercent | decimal(5,2) entre 0 y 100 | porcentaje de recargo por cada mes de atraso; por defecto 5 |
-| businessName, businessOwner | texto, opcional | nombre del comercio y su titular, como se imprimen en el encabezado del remito (D23). Arrancan vacíos |
+| businessName, businessOwner | texto, opcional | nombre del comercio y su titular, como se imprimen en el encabezado del remito (D23). La migración `remito_header_defaults` carga los del papel |
 | businessAddress | texto, opcional | domicilio, puede tener varias líneas |
 | businessTaxCondition | `CONSUMER`, `EXEMPT`, `REGISTERED` o `MONOTAX`, opcional | condición frente al IVA del comercio |
-| businessCuit | texto, opcional | 11 dígitos |
+| businessCuit | texto, opcional | 11 dígitos. El que carga la migración es de ejemplo (`20123456789`) |
 | businessGrossIncome | texto, opcional | número de Ingresos Brutos (texto: puede llevar guiones) |
 | businessActivityStart | texto, opcional | inicio de actividades tal como se escribe (por ejemplo `03/2011`: el papel no trae el día) |
 | updatedAt | fecha y hora | cuándo se modificó por última vez |
