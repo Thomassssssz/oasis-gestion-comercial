@@ -205,7 +205,7 @@ model Setting {
   businessTaxCondition  TaxCondition?
   businessCuit          String?
   businessGrossIncome   String?
-  businessActivityStart DateTime?     @db.Date
+  businessActivityStart String?
   updatedAt             DateTime      @updatedAt
   updatedById           Int?
   updatedBy             User?         @relation(fields: [updatedById], references: [id], onDelete: Restrict)

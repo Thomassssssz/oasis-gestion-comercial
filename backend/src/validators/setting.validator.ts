@@ -17,25 +17,6 @@ export const settingInputSchema = z.object({
   lateFeePercent: percentSchema,
 });
 
-// Fecha "AAAA-MM-DD" que existe de verdad (no acepta 2020-02-31). Vacía es "sin dato".
-const activityStartSchema = z
-  .string({ error: "La fecha de inicio de actividades no es válida" })
-  .trim()
-  .transform((value) => (value === "" ? null : value))
-  .nullish()
-  .transform((value) => value ?? null)
-  .pipe(
-    z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, "La fecha de inicio de actividades debe tener el formato AAAA-MM-DD")
-      .refine((value) => {
-        // Si el formato ya falló, esta comprobación no corre en serio: `Date` inválido no se puede convertir a texto.
-        const date = new Date(`${value}T00:00:00Z`);
-        return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
-      }, "La fecha de inicio de actividades no existe")
-      .nullable(),
-  );
-
 // Datos del comercio que se imprimen en el encabezado del remito (D23). Todos opcionales; se envían todos juntos.
 export const businessSettingSchema = z.object({
   name: optionalText("El nombre del comercio", 100),
@@ -44,7 +25,7 @@ export const businessSettingSchema = z.object({
   taxCondition: taxConditionSchema,
   cuit: cuitSchema,
   grossIncome: optionalText("Ingresos Brutos", 30),
-  activityStart: activityStartSchema,
+  activityStart: optionalText("El inicio de actividades", 30),
 });
 
 export type SettingInput = z.infer<typeof settingInputSchema>;

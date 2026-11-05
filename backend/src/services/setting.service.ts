@@ -12,7 +12,7 @@ function toResponse(row: SettingRow) {
   };
 }
 
-// Los datos del comercio salen con los mismos nombres que usa la pantalla del remito. La fecha sale como "AAAA-MM-DD".
+// Los datos del comercio salen con los mismos nombres que usa la pantalla del remito.
 function toBusinessResponse(row: SettingRow) {
   return {
     name: row.businessName,
@@ -21,7 +21,7 @@ function toBusinessResponse(row: SettingRow) {
     taxCondition: row.businessTaxCondition,
     cuit: row.businessCuit,
     grossIncome: row.businessGrossIncome,
-    activityStart: row.businessActivityStart ? row.businessActivityStart.toISOString().slice(0, 10) : null,
+    activityStart: row.businessActivityStart,
     updatedAt: row.updatedAt,
     updatedBy: row.updatedBy,
   };

@@ -17,7 +17,7 @@ ADD COLUMN "businessAddress" TEXT,
 ADD COLUMN "businessTaxCondition" "TaxCondition",
 ADD COLUMN "businessCuit" TEXT,
 ADD COLUMN "businessGrossIncome" TEXT,
-ADD COLUMN "businessActivityStart" DATE;
+ADD COLUMN "businessActivityStart" TEXT;
 
 -- Reglas que Prisma no expresa en schema.prisma (D23):
 -- el CUIT son 11 dígitos; los textos opcionales no pueden ser solo espacios.
@@ -30,3 +30,4 @@ ALTER TABLE "Setting" ADD CONSTRAINT "Setting_business_name_not_blank" CHECK ("b
 ALTER TABLE "Setting" ADD CONSTRAINT "Setting_business_owner_not_blank" CHECK ("businessOwner" IS NULL OR length(btrim("businessOwner")) > 0);
 ALTER TABLE "Setting" ADD CONSTRAINT "Setting_business_address_not_blank" CHECK ("businessAddress" IS NULL OR length(btrim("businessAddress")) > 0);
 ALTER TABLE "Setting" ADD CONSTRAINT "Setting_business_gross_income_not_blank" CHECK ("businessGrossIncome" IS NULL OR length(btrim("businessGrossIncome")) > 0);
+ALTER TABLE "Setting" ADD CONSTRAINT "Setting_business_activity_start_not_blank" CHECK ("businessActivityStart" IS NULL OR length(btrim("businessActivityStart")) > 0);

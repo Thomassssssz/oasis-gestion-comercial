@@ -500,6 +500,7 @@ describe("esquema: datos del remito (D23)", () => {
     await expect(prisma.setting.create({ data: { id: 1, businessOwner: " " } })).rejects.toThrow();
     await expect(prisma.setting.create({ data: { id: 1, businessAddress: " " } })).rejects.toThrow();
     await expect(prisma.setting.create({ data: { id: 1, businessGrossIncome: " " } })).rejects.toThrow();
+    await expect(prisma.setting.create({ data: { id: 1, businessActivityStart: " " } })).rejects.toThrow();
     await expect(prisma.setting.create({ data: { id: 1, businessCuit: "20111111111", businessTaxCondition: "EXEMPT" } })).resolves.toBeTruthy();
   });
 

@@ -24,7 +24,7 @@ export function createSettingRepository(prisma: PrismaClient) {
         businessTaxCondition: data.taxCondition,
         businessCuit: data.cuit,
         businessGrossIncome: data.grossIncome,
-        businessActivityStart: data.activityStart ? new Date(`${data.activityStart}T00:00:00Z`) : null,
+        businessActivityStart: data.activityStart,
         updatedById: userId,
       };
       return prisma.setting.upsert({ where: { id: SETTINGS_ID }, update: columns, create: { id: SETTINGS_ID, ...columns }, include });

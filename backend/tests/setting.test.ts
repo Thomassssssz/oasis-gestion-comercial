@@ -123,7 +123,7 @@ describe("datos del comercio para el remito (/api/settings/business)", () => {
     taxCondition: "EXEMPT",
     cuit: "20-11111111-1",
     grossIncome: "123-456",
-    activityStart: "2015-03-01",
+    activityStart: "03/2011",
   };
 
   it("sin sesión responde 401", async () => {
@@ -147,12 +147,12 @@ describe("datos del comercio para el remito (/api/settings/business)", () => {
     });
   });
 
-  it("guarda los datos (el CUIT solo con dígitos, la fecha como AAAA-MM-DD) y los devuelve en la consulta siguiente", async () => {
+  it("guarda los datos (el CUIT solo con dígitos, el inicio de actividades tal como se escribe) y los devuelve en la consulta siguiente", async () => {
     const response = await agent.put("/api/settings/business").send(full);
 
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({ ...full, cuit: "20111111111", updatedBy: { fullName: expect.any(String) } });
-    expect((await agent.get("/api/settings/business")).body).toMatchObject({ ...full, cuit: "20111111111", activityStart: "2015-03-01" });
+    expect((await agent.get("/api/settings/business")).body).toMatchObject({ ...full, cuit: "20111111111", activityStart: "03/2011" });
   });
 
   it("reemplaza todos los datos: lo que no se envía queda vacío", async () => {
@@ -182,8 +182,7 @@ describe("datos del comercio para el remito (/api/settings/business)", () => {
   it.each([
     ["CUIT corto", { cuit: "1234" }],
     ["condición inventada", { taxCondition: "OTRA" }],
-    ["fecha con otro formato", { activityStart: "01/03/2015" }],
-    ["fecha que no existe", { activityStart: "2015-02-31" }],
+    ["inicio de actividades demasiado largo", { activityStart: "x".repeat(31) }],
     ["nombre demasiado largo", { name: "x".repeat(101) }],
     ["domicilio demasiado largo", { address: "x".repeat(301) }],
   ])("rechaza %s y no guarda nada", async (_name, extra) => {

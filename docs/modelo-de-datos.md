@@ -201,7 +201,7 @@ Esta tabla todavía no se relaciona con otras: las ventas con cliente y las cuen
 | businessTaxCondition | `CONSUMER`, `EXEMPT`, `REGISTERED` o `MONOTAX`, opcional | condición frente al IVA del comercio |
 | businessCuit | texto, opcional | 11 dígitos |
 | businessGrossIncome | texto, opcional | número de Ingresos Brutos (texto: puede llevar guiones) |
-| businessActivityStart | fecha (sin hora), opcional | inicio de actividades |
+| businessActivityStart | texto, opcional | inicio de actividades tal como se escribe (por ejemplo `03/2011`: el papel no trae el día) |
 | updatedAt | fecha y hora | cuándo se modificó por última vez |
 | updatedById | entero, clave foránea → User, opcional | quién lo modificó por última vez; vacío mientras nadie lo cambió. No se puede borrar un usuario que figure acá |
 
