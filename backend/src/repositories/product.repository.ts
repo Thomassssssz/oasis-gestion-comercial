@@ -17,6 +17,17 @@ export function createProductRepository(prisma: PrismaClient) {
         orderBy: { name: "asc" },
         include: withCategory,
       }),
+    // Stock actual de cada producto: la suma de las cantidades de sus movimientos (D1).
+    // Devuelve un mapa id -> stock; los productos sin movimientos no aparecen (su stock es 0).
+    async stockByProduct(productIds: number[]) {
+      if (productIds.length === 0) return new Map<number, number>();
+      const totals = await prisma.stockMovement.groupBy({
+        by: ["productId"],
+        where: { productId: { in: productIds } },
+        _sum: { quantity: true },
+      });
+      return new Map(totals.map((row) => [row.productId, row._sum.quantity ?? 0]));
+    },
     findById: (id: number) => prisma.product.findUnique({ where: { id }, include: withCategory }),
     create: (data: ProductInput) => prisma.product.create({ data, include: withCategory }),
     update: (id: number, data: ProductUpdate) =>

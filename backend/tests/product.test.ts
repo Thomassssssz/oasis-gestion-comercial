@@ -268,3 +268,112 @@ describe("sin iniciar sesión", () => {
     expect(response.body).toEqual({ error: "Tenés que iniciar sesión" });
   });
 });
+
+describe("stock de los productos", () => {
+  // Registra un movimiento por la API, como lo haría la pantalla.
+  async function addStock(productId: number, quantity: number) {
+    const response = await agent.post("/api/stock-movements").send({ type: "INITIAL_STOCK", productId, quantity });
+    expect(response.status).toBe(201);
+  }
+  const adjustStock = (productId: number, quantity: number) =>
+    agent.post("/api/stock-movements").send({ type: "ADJUSTMENT", productId, quantity, reason: "PHYSICAL_COUNT" });
+
+  it("un producto nuevo tiene stock 0", async () => {
+    const categoryId = await createCategory();
+
+    const response = await agent.post("/api/products").send({ name: "Cuaderno", categoryId, salePrice: 10, minStock: 3 });
+
+    expect(response.body).toMatchObject({ stock: 0, lowStock: true });
+  });
+
+  it("el stock es la suma de los movimientos y se ve en el listado, el detalle y al editar", async () => {
+    const categoryId = await createCategory();
+    const { id } = await createProduct({ categoryId, minStock: 2 });
+    await addStock(id, 10);
+    await adjustStock(id, -4);
+
+    const list = await agent.get("/api/products");
+    const detail = await agent.get(`/api/products/${id}`);
+    const updated = await agent.put(`/api/products/${id}`).send({ name: "Cuaderno", categoryId, salePrice: "1500.50", minStock: 2, active: true });
+
+    expect(list.body[0]).toMatchObject({ stock: 6, lowStock: false });
+    expect(detail.body).toMatchObject({ stock: 6, lowStock: false });
+    expect(updated.body).toMatchObject({ stock: 6, lowStock: false });
+  });
+
+  it("cada producto muestra solo su propio stock", async () => {
+    const categoryId = await createCategory();
+    const a = await createProduct({ name: "Cuaderno", categoryId });
+    const b = await createProduct({ name: "Lápiz", categoryId });
+    await addStock(a.id, 7);
+
+    const list = await agent.get("/api/products");
+
+    expect(list.body.map((p: { name: string; stock: number }) => [p.name, p.stock])).toEqual([
+      ["Cuaderno", 7],
+      ["Lápiz", 0],
+    ]);
+    expect(b.id).not.toBe(a.id);
+  });
+
+  it("está en alerta cuando el stock es menor o igual al mínimo, y no cuando es mayor (D5)", async () => {
+    const categoryId = await createCategory();
+    const below = await createProduct({ name: "Abajo", categoryId, minStock: 5 });
+    const equal = await createProduct({ name: "Igual", categoryId, minStock: 5 });
+    const above = await createProduct({ name: "Arriba", categoryId, minStock: 5 });
+    await addStock(below.id, 4);
+    await addStock(equal.id, 5);
+    await addStock(above.id, 6);
+
+    const byName = Object.fromEntries(
+      (await agent.get("/api/products")).body.map((p: { name: string; lowStock: boolean }) => [p.name, p.lowStock]),
+    );
+
+    expect(byName).toEqual({ Abajo: true, Igual: true, Arriba: false });
+  });
+
+  it("con mínimo 0, un producto sin stock está en alerta y con stock no (D5)", async () => {
+    const categoryId = await createCategory();
+    const empty = await createProduct({ name: "Vacío", categoryId, minStock: 0 });
+    const full = await createProduct({ name: "Lleno", categoryId, minStock: 0 });
+    await addStock(full.id, 1);
+
+    const byName = Object.fromEntries(
+      (await agent.get("/api/products")).body.map((p: { name: string; lowStock: boolean }) => [p.name, p.lowStock]),
+    );
+
+    expect(byName).toEqual({ Vacío: true, Lleno: false });
+    expect(empty.id).not.toBe(full.id);
+  });
+
+  it("lowStock=true lista solo los productos en alerta y lowStock=false, el resto", async () => {
+    const categoryId = await createCategory();
+    const low = await createProduct({ name: "Poco", categoryId, minStock: 5 });
+    const ok = await createProduct({ name: "Mucho", categoryId, minStock: 5 });
+    await addStock(low.id, 2);
+    await addStock(ok.id, 50);
+
+    const onlyLow = await agent.get("/api/products?lowStock=true");
+    const onlyOk = await agent.get("/api/products?lowStock=false");
+
+    expect(onlyLow.body.map((p: { name: string }) => p.name)).toEqual(["Poco"]);
+    expect(onlyOk.body.map((p: { name: string }) => p.name)).toEqual(["Mucho"]);
+  });
+
+  it("lowStock se combina con los otros filtros", async () => {
+    const categoryId = await createCategory();
+    const a = await createProduct({ name: "Cuaderno rojo", categoryId, minStock: 5 });
+    await createProduct({ name: "Lapicera", categoryId, minStock: 5 });
+    await addStock(a.id, 1);
+
+    const response = await agent.get("/api/products?lowStock=true&search=cuad");
+
+    expect(response.body.map((p: { name: string }) => p.name)).toEqual(["Cuaderno rojo"]);
+  });
+
+  it("rechaza un valor de lowStock inválido", async () => {
+    const response = await agent.get("/api/products?lowStock=quizas");
+
+    expect(response.status).toBe(400);
+  });
+});

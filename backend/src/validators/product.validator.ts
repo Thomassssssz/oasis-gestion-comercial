@@ -41,6 +41,8 @@ export const listQuerySchema = z.object({
   search: z.string().trim().min(1).optional(),
   categoryId: z.coerce.number({ error: "La categoría no es válida" }).int().positive().optional(),
   active: z.enum(["true", "false"], { error: 'El filtro active debe ser "true" o "false"' }).transform((v) => v === "true").optional(),
+  // lowStock=true trae solo los productos en alerta de stock mínimo (D5); lowStock=false, los que no.
+  lowStock: z.enum(["true", "false"], { error: 'El filtro lowStock debe ser "true" o "false"' }).transform((v) => v === "true").optional(),
 });
 
 export type ProductInput = z.infer<typeof productInputSchema>;
