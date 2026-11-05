@@ -1,0 +1,18 @@
+import type { ComponentProps } from 'react'
+
+import { cn } from '@/lib/utils'
+
+// Lista desplegable nativa del navegador, con el estilo del sistema.
+function Select({ className, ...props }: ComponentProps<'select'>) {
+  return (
+    <select
+      className={cn(
+        'h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
+export { Select }

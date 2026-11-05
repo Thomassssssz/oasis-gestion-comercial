@@ -1,0 +1,15 @@
+// Error "esperado" de la API: lleva el código HTTP que hay que responder.
+export class AppError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+export const badRequest = (message: string) => new AppError(400, message);
+export const unauthorized = (message: string) => new AppError(401, message);
+export const tooManyRequests = (message: string) => new AppError(429, message);
+export const notFound = (message: string) => new AppError(404, message);
+export const conflict = (message: string) => new AppError(409, message);

@@ -1,0 +1,27 @@
+# Secretos: nunca se suben a GitHub
+.env
+.env.*
+!.env.example
+
+# Dependencias y compilados
+node_modules/
+dist/
+build/
+coverage/
+
+# Código que genera Prisma (se regenera con npm install o npm run postinstall)
+backend/src/generated/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Datos locales de Docker / base de datos
+pgdata/
+
+# Sistema operativo y editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

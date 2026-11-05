@@ -1,0 +1,264 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Categoría de productos (ej.: Papelería, Útiles escolares).
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+}
+
+// Producto del catálogo. El stock NO se guarda acá: se calcula desde los
+// movimientos de inventario (decisión D1 en docs/decisiones.md).
+model Product {
+  id             Int             @id @default(autoincrement())
+  name           String
+  categoryId     Int
+  category       Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  salePrice      Decimal         @db.Decimal(12, 2)
+  minStock       Int             @default(0)
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  stockMovements StockMovement[]
+  saleItems      SaleItem[]
+
+  @@index([categoryId])
+}
+
+// Persona que usa el sistema (por ahora, los propietarios). No hay roles: todos tienen los mismos permisos (D4).
+// La contraseña NUNCA se guarda: solo su hash (D9).
+model User {
+  id              Int              @id @default(autoincrement())
+  username        String           @unique
+  fullName        String
+  passwordHash    String
+  active          Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  sessions        Session[]
+  stockMovements  StockMovement[]
+  sales           Sale[]           @relation("SaleCreatedBy")
+  annulledSales   Sale[]           @relation("SaleAnnulledBy")
+  settingChanges  Setting[]
+  accountPayments AccountPayment[]
+  surcharges      Surcharge[]
+  auditLogs       AuditLog[]
+}
+
+// Sesión abierta de un usuario. Se guarda el hash del código de la cookie, no el código (D9).
+model Session {
+  id        Int      @id @default(autoincrement())
+  tokenHash String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Tipos de movimiento de stock: carga inicial, ajuste manual (D12), venta y anulación de venta (D13).
+// Las compras agregan el suyo con su módulo.
+enum StockMovementType {
+  INITIAL_STOCK
+  ADJUSTMENT
+  SALE
+  SALE_ANNULMENT
+}
+
+// Motivo de un ajuste manual: lista fija (D7).
+enum AdjustmentReason {
+  PHYSICAL_COUNT
+  DAMAGE_OR_LOSS
+  SUPPLIER_RETURN
+  OTHER
+}
+
+// Un movimiento de stock: entra o sale mercadería de un producto. El stock es la suma de
+// `quantity` de sus movimientos (D1). Positivo = entrada, negativo = salida. No se edita ni se borra (D12).
+model StockMovement {
+  id        Int               @id @default(autoincrement())
+  productId Int
+  product   Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  type      StockMovementType
+  quantity  Int
+  reason    AdjustmentReason?
+  note      String?
+  userId    Int
+  user      User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  saleId    Int?
+  sale      Sale?             @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  createdAt DateTime          @default(now())
+
+  @@index([productId, createdAt])
+  @@index([userId])
+  @@index([saleId])
+}
+
+// Medios de pago de una venta (regla de negocio confirmada).
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  CARD
+  DIGITAL_WALLET
+}
+
+enum CreditAccountStatus {
+  OPEN
+  CANCELLED
+}
+
+enum SaleStatus {
+  CONFIRMED
+  ANNULLED
+}
+
+// Una venta rápida (D13). El total NO se guarda: es la suma de sus ítems (D13-c).
+// No se edita ni se borra: se anula y queda el registro de quién, cuándo y por qué (D3).
+model Sale {
+  id              Int             @id @default(autoincrement())
+  status          SaleStatus      @default(CONFIRMED)
+  paymentMethod   PaymentMethod?
+  userId          Int
+  user            User            @relation("SaleCreatedBy", fields: [userId], references: [id], onDelete: Restrict)
+  customerId      Int?
+  customer        Customer?       @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  discountAmount  Decimal         @default(0) @db.Decimal(12, 2)
+  note            String?
+  onCredit        Boolean         @default(false)
+  creditAccountId Int?
+  creditAccount   CreditAccount?  @relation(fields: [creditAccountId], references: [id], onDelete: Restrict)
+  createdAt       DateTime        @default(now())
+  annulledAt      DateTime?
+  annulledById    Int?
+  annulledBy      User?           @relation("SaleAnnulledBy", fields: [annulledById], references: [id], onDelete: Restrict)
+  annulmentReason String?
+  items           SaleItem[]
+  stockMovements  StockMovement[]
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([annulledById])
+  @@index([customerId])
+  @@index([creditAccountId])
+}
+
+// Un producto vendido en una venta. unitPrice es el precio de lista del día de la venta (D13-a).
+model SaleItem {
+  id        Int     @id @default(autoincrement())
+  saleId    Int
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity  Int
+  unitPrice Decimal @db.Decimal(12, 2)
+
+  @@unique([saleId, productId])
+  @@index([productId])
+}
+
+// Cliente del comercio. Tiene su ficha individual (D14). No se borra: se da de baja (active = false).
+// creditAuthorized indica si puede comprar a crédito; hoy es solo una casilla, sin límite de deuda (D14-b).
+model Customer {
+  id               Int             @id @default(autoincrement())
+  name             String
+  phone            String?
+  dni              String?         @unique
+  address          String?
+  notes            String?
+  creditAuthorized Boolean         @default(false)
+  active           Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  sales            Sale[]
+  creditAccounts   CreditAccount[]
+}
+
+// Parámetros del sistema. Hay una sola fila (id = 1). El recargo por mora es un parámetro configurable (D16).
+model Setting {
+  id             Int      @id @default(1)
+  lateFeePercent Decimal  @default(5) @db.Decimal(5, 2)
+  updatedAt      DateTime @updatedAt
+  updatedById    Int?
+  updatedBy      User?    @relation(fields: [updatedById], references: [id], onDelete: Restrict)
+}
+
+// Ficha de cuenta corriente de un cliente (D17). El primer producto a crédito que se registra en la ficha
+// inicia su plazo de un mes (openedAt -> dueDate); cada cliente tiene su propio ciclo. Cuando el saldo llega a cero
+// la ficha pasa a CANCELLED (historial). El saldo no se guarda: se calcula (D17-e).
+model CreditAccount {
+  id         Int                 @id @default(autoincrement())
+  customerId Int
+  customer   Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  status     CreditAccountStatus @default(OPEN)
+  openedAt   DateTime
+  dueDate    DateTime
+  closedAt   DateTime?
+  sales      Sale[]
+  payments   AccountPayment[]
+  surcharges Surcharge[]
+
+  @@index([customerId])
+  @@index([status, dueDate])
+}
+
+// Pago a la cuenta corriente. Un pago parcial baja el saldo pero NO mueve el vencimiento de la ficha (regla confirmada).
+// Nunca se edita ni se borra: un error se corrige con otra operación (D18).
+model AccountPayment {
+  id            Int           @id @default(autoincrement())
+  accountId     Int
+  account       CreditAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  userId        Int
+  user          User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  amount        Decimal       @db.Decimal(12, 2)
+  paymentMethod PaymentMethod
+  note          String?
+  createdAt     DateTime      @default(now())
+
+  @@index([accountId])
+}
+
+// Recargo por mora registrado: un renglón por cada mes de atraso. Guarda el porcentaje y la base usados, así que
+// cambiar el parámetro después no recalcula el pasado (D18). (accountId, monthNumber) es único.
+model Surcharge {
+  id          Int           @id @default(autoincrement())
+  accountId   Int
+  account     CreditAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  userId      Int
+  user        User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  monthNumber Int
+  base        Decimal       @db.Decimal(12, 2)
+  percent     Decimal       @db.Decimal(5, 2)
+  amount      Decimal       @db.Decimal(12, 2)
+  chargedOn   DateTime
+  createdAt   DateTime      @default(now())
+
+  @@unique([accountId, monthNumber])
+  @@index([accountId])
+}
+
+// Registro de auditoría: quién hizo qué y cuándo (D20). Solo se agrega: la base impide modificar o borrar filas.
+// `action` y `entityType` son claves cortas (por ejemplo SALE_ANNULLED y Sale); `summary` es el texto que se muestra.
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  action     String
+  entityType String
+  entityId   Int?
+  summary    String
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([entityType, entityId])
+}
