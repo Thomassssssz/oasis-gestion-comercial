@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { SearchInput } from '@/components/ui/search-input'
 import { Select } from '@/components/ui/select'
 import { registerMovement } from '@/services/stock-movements/stock-movement.service'
 import type { Product } from '@/types/product.types'
 import type { AdjustmentReason, MovementInput, RegistrableMovementType } from '@/types/stock-movement.types'
 import { describeError } from '@/utils/errors'
+import { filterByName } from '@/utils/search'
 import { adjustmentReasonLabels, movementTypeLabels, registrableTypes } from '@/utils/stock-labels'
 
 type Props = {
@@ -19,6 +21,7 @@ type Props = {
 // y sus mensajes se muestran tal cual.
 export default function MovementForm({ products, onSaved, onCancel }: Props) {
   const [productId, setProductId] = useState('')
+  const [productSearch, setProductSearch] = useState('')
   const [type, setType] = useState<RegistrableMovementType>('INITIAL_STOCK')
   const [quantity, setQuantity] = useState('')
   const [reason, setReason] = useState<AdjustmentReason>('PHYSICAL_COUNT')
@@ -48,11 +51,15 @@ export default function MovementForm({ products, onSaved, onCancel }: Props) {
     <form onSubmit={handleSubmit} className="mb-6 grid gap-3 rounded-md border border-border bg-white p-4 sm:grid-cols-2">
       <h3 className="text-lg font-semibold sm:col-span-2">Nuevo movimiento de stock</h3>
 
+      <div className="grid gap-1 text-sm sm:col-span-2">
+        <SearchInput label="Buscar producto por nombre" placeholder="Buscar producto por nombre" value={productSearch} onChange={(e) => setProductSearch(e.target.value)} />
+      </div>
+
       <label className="grid gap-1 text-sm sm:col-span-2">
         Producto
         <Select value={productId} onChange={(e) => setProductId(e.target.value)}>
-          <option value="">Elegí un producto</option>
-          {products.map((product) => (
+          <option value="">{productSearch.trim() && filterByName(products, productSearch, null).length === 0 ? 'Ningún producto coincide' : 'Elegí un producto'}</option>
+          {filterByName(products, productSearch, productId ? Number(productId) : null).map((product) => (
             <option key={product.id} value={product.id}>
               {product.name} (stock {product.stock}){product.active ? '' : ' – de baja'}
             </option>

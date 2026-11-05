@@ -234,6 +234,121 @@ describe('SalesPage – nueva venta', () => {
   })
 })
 
+describe('SalesPage – buscar producto por nombre', () => {
+  const opciones = () => within(screen.getByLabelText('Agregar producto')).getAllByRole('option').map((o) => o.textContent)
+
+  it('tiene un buscador con lupa además del desplegable, que sigue funcionando', async () => {
+    mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<SalesPage />)
+
+    expect(await screen.findByRole('searchbox', { name: 'Buscar producto por nombre' })).toBeInTheDocument()
+    await agregar(user, 10)
+
+    expect(screen.getByRole('button', { name: 'Quitar Cuaderno A4' })).toBeInTheDocument()
+  })
+
+  it('al escribir deja en el desplegable solo los productos que coinciden, sin importar tildes ni mayúsculas', async () => {
+    mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    await screen.findByRole('option', { name: /Lápiz negro/ })
+
+    await user.type(screen.getByRole('searchbox', { name: 'Buscar producto por nombre' }), 'LAPIZ')
+
+    expect(opciones()).toEqual(['Agregar producto…', expect.stringContaining('Lápiz negro')])
+  })
+
+  it('borrar lo escrito vuelve a mostrar todos', async () => {
+    mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    const buscador = await screen.findByRole('searchbox', { name: 'Buscar producto por nombre' })
+
+    await user.type(buscador, 'lap')
+    await user.clear(buscador)
+
+    expect(opciones()).toHaveLength(1 + 3)
+  })
+
+  it('sin coincidencias lo dice en el desplegable', async () => {
+    mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<SalesPage />)
+
+    await user.type(await screen.findByRole('searchbox', { name: 'Buscar producto por nombre' }), 'zzz')
+
+    expect(opciones()).toEqual(['Ningún producto coincide'])
+  })
+
+  it('sin productos cargados y sin escribir nada el desplegable sigue pidiendo agregar un producto', async () => {
+    mockApi({ ...baseRoutes, 'GET /api/products': () => [] })
+    render(<SalesPage />)
+
+    expect(await screen.findByRole('option', { name: 'Agregar producto…' })).toBeInTheDocument()
+  })
+
+  it('Enter agrega el único producto que queda, limpia la búsqueda y no envía la venta', async () => {
+    const { calls } = mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    const buscador = await screen.findByRole('searchbox', { name: 'Buscar producto por nombre' })
+    await screen.findByRole('option', { name: /Lápiz negro/ })
+
+    await user.type(buscador, 'lapiz{Enter}')
+
+    expect(screen.getByRole('button', { name: 'Quitar Lápiz negro' })).toBeInTheDocument()
+    expect(buscador).toHaveValue('')
+    expect(calls.some((c) => c.method === 'POST')).toBe(false)
+  })
+
+  it('Enter en el buscador no confirma la venta aunque el carrito ya tenga productos', async () => {
+    const { calls } = mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    await agregar(user, 10)
+
+    await user.type(screen.getByRole('searchbox', { name: 'Buscar producto por nombre' }), 'zzz{Enter}')
+
+    expect(calls.some((c) => c.method === 'POST')).toBe(false)
+  })
+
+  it('Enter con varios resultados no agrega nada', async () => {
+    mockApi({ ...baseRoutes, 'GET /api/products': () => [cuaderno, producto(13, 'Cuaderno A5', '900.00', 4)] })
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    await screen.findByRole('option', { name: /Cuaderno A5/ })
+
+    await user.type(screen.getByRole('searchbox', { name: 'Buscar producto por nombre' }), 'cuaderno{Enter}')
+
+    expect(screen.queryByRole('button', { name: /^Quitar/ })).not.toBeInTheDocument()
+  })
+
+  it('Enter no agrega un producto sin stock', async () => {
+    mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    await screen.findByRole('option', { name: /Goma/ })
+
+    await user.type(screen.getByRole('searchbox', { name: 'Buscar producto por nombre' }), 'goma{Enter}')
+
+    expect(screen.queryByRole('button', { name: /^Quitar/ })).not.toBeInTheDocument()
+  })
+
+  it('agregar el mismo producto otra vez suma una unidad', async () => {
+    mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    const buscador = await screen.findByRole('searchbox', { name: 'Buscar producto por nombre' })
+    await screen.findByRole('option', { name: /Lápiz negro/ })
+
+    await user.type(buscador, 'lapiz{Enter}')
+    await user.type(buscador, 'lapiz{Enter}')
+
+    expect(screen.getByLabelText('Cantidad de Lápiz negro')).toHaveValue(2)
+  })
+})
+
 describe('SalesPage – anular', () => {
   const unaVenta = { ...baseRoutes, 'GET /api/sales': () => [venta(7)] }
 

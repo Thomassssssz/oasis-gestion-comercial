@@ -2,6 +2,7 @@ import { Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { SearchInput } from '@/components/ui/search-input'
 import { Select } from '@/components/ui/select'
 import { createSale } from '@/services/sales/sale.service'
 import type { Customer } from '@/types/customer.types'
@@ -9,6 +10,7 @@ import type { Product } from '@/types/product.types'
 import type { PaymentMethod } from '@/types/sale.types'
 import { describeError } from '@/utils/errors'
 import { peso } from '@/utils/format'
+import { filterByName } from '@/utils/search'
 import { paymentMethodLabels } from '@/utils/sale-labels'
 
 type CartLine = { productId: number; quantity: string }
@@ -34,6 +36,7 @@ const discountCents = (text: string) => {
 // la API y sus mensajes se muestran tal cual (D17).
 export default function SaleForm({ products, customers, onSaved }: Props) {
   const [cart, setCart] = useState<CartLine[]>([])
+  const [productSearch, setProductSearch] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH')
   const [customerId, setCustomerId] = useState('')
   const [discount, setDiscount] = useState('')
@@ -43,6 +46,7 @@ export default function SaleForm({ products, customers, onSaved }: Props) {
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState<string | null>(null)
 
+  const matches = filterByName(products, productSearch)
   const byId = new Map(products.map((product) => [product.id, product]))
   const subtotalCents = cart.reduce(
     (sum, line) => sum + cents(byId.get(line.productId)?.salePrice ?? '0') * (Number(line.quantity) || 0),
@@ -105,19 +109,36 @@ export default function SaleForm({ products, customers, onSaved }: Props) {
     <form onSubmit={handleSubmit} className="mb-8 rounded-md border border-border bg-white p-4">
       <h3 className="mb-3 text-lg font-semibold">Nueva venta</h3>
 
-      <Select
-        aria-label="Agregar producto"
-        value=""
-        onChange={(e) => e.target.value && addProduct(Number(e.target.value))}
-        className="mb-4 max-w-md"
-      >
-        <option value="">Agregar producto…</option>
-        {products.map((product) => (
-          <option key={product.id} value={product.id} disabled={product.stock <= 0}>
-            {product.name} – {peso.format(Number(product.salePrice))} (stock {product.stock})
-          </option>
-        ))}
-      </Select>
+      <div className="mb-4 grid max-w-2xl gap-2 sm:grid-cols-2">
+        <SearchInput
+          label="Buscar producto por nombre"
+          placeholder="Buscar producto por nombre"
+          value={productSearch}
+          onChange={(e) => setProductSearch(e.target.value)}
+          onKeyDown={(e) => {
+            // Enter no envía la venta: si queda un solo producto con stock, lo agrega y deja la búsqueda lista para el siguiente.
+            if (e.key !== 'Enter') return
+            e.preventDefault()
+            const found = matches.filter((product) => product.stock > 0)
+            if (found.length === 1) {
+              addProduct(found[0]!.id)
+              setProductSearch('')
+            }
+          }}
+        />
+        <Select
+          aria-label="Agregar producto"
+          value=""
+          onChange={(e) => e.target.value && addProduct(Number(e.target.value))}
+        >
+          <option value="">{productSearch.trim() && matches.length === 0 ? 'Ningún producto coincide' : 'Agregar producto…'}</option>
+          {matches.map((product) => (
+            <option key={product.id} value={product.id} disabled={product.stock <= 0}>
+              {product.name} – {peso.format(Number(product.salePrice))} (stock {product.stock})
+            </option>
+          ))}
+        </Select>
+      </div>
 
       {cart.length === 0 ? (
         <p className="mb-4 text-sm text-muted-foreground">Todavía no agregaste productos.</p>

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import CustomerForm from '@/components/customers/CustomerForm'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { SearchInput } from '@/components/ui/search-input'
 import { Select } from '@/components/ui/select'
 import { listAccounts } from '@/services/accounts/account.service'
 import { customerData, listCustomers, updateCustomer } from '@/services/customers/customer.service'
@@ -83,8 +83,8 @@ export default function CustomersPage() {
       )}
 
       <div className="mb-4 grid items-center gap-2 sm:grid-cols-4">
-        <Input
-          aria-label="Buscar cliente"
+        <SearchInput
+          label="Buscar cliente"
           placeholder="Buscar por nombre, DNI o teléfono"
           value={filters.search}
           onChange={(e) => setFilters({ ...filters, search: e.target.value })}

@@ -1,7 +1,7 @@
 import { Pencil, Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { SearchInput } from '@/components/ui/search-input'
 import { Select } from '@/components/ui/select'
 import { listCategories } from '@/services/categories/category.service'
 import { listProducts, updateProduct } from '@/services/products/product.service'
@@ -88,8 +88,8 @@ export default function ProductsPage() {
       )}
 
       <div className="mb-4 grid items-center gap-2 sm:grid-cols-4">
-        <Input
-          aria-label="Buscar producto"
+        <SearchInput
+          label="Buscar producto"
           placeholder="Buscar por nombre"
           value={filters.search}
           onChange={(e) => setFilters({ ...filters, search: e.target.value })}

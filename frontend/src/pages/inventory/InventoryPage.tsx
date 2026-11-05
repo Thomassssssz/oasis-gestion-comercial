@@ -2,12 +2,14 @@ import { Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import MovementForm from '@/components/inventory/MovementForm'
 import { Button } from '@/components/ui/button'
+import { SearchInput } from '@/components/ui/search-input'
 import { Select } from '@/components/ui/select'
 import { listProducts } from '@/services/products/product.service'
 import { listMovements } from '@/services/stock-movements/stock-movement.service'
 import type { Product } from '@/types/product.types'
 import type { StockMovement } from '@/types/stock-movement.types'
 import { describeError } from '@/utils/errors'
+import { filterByName } from '@/utils/search'
 import { adjustmentReasonLabels, movementTypeLabels } from '@/utils/stock-labels'
 
 const dateTime = new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' })
@@ -18,6 +20,7 @@ export default function InventoryPage() {
   const [movements, setMovements] = useState<StockMovement[] | null>(null)
   // '' = movimientos de todos los productos.
   const [productFilter, setProductFilter] = useState('')
+  const [productSearch, setProductSearch] = useState('') // lo que se escribe en la lupa para encontrar el producto
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [reload, setReload] = useState(0)
@@ -72,10 +75,11 @@ export default function InventoryPage() {
 
       {creating && <MovementForm products={products} onSaved={handleSaved} onCancel={() => setCreating(false)} />}
 
-      <div className="mb-4 max-w-sm">
+      <div className="mb-4 grid max-w-2xl gap-2 sm:grid-cols-2">
+        <SearchInput label="Buscar producto por nombre" placeholder="Buscar producto por nombre" value={productSearch} onChange={(e) => setProductSearch(e.target.value)} />
         <Select aria-label="Filtrar por producto" value={productFilter} onChange={(e) => setProductFilter(e.target.value)}>
           <option value="">Todos los productos</option>
-          {products.map((product) => (
+          {filterByName(products, productSearch, productFilter ? Number(productFilter) : null).map((product) => (
             <option key={product.id} value={product.id}>
               {product.name}
             </option>

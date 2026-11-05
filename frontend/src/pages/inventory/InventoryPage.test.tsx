@@ -82,6 +82,23 @@ describe('InventoryPage', () => {
     )
   })
 
+  it('un buscador con lupa filtra el desplegable de productos del historial, sin perder el que está elegido', async () => {
+    mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<InventoryPage />)
+    const filtro = await screen.findByLabelText('Filtrar por producto')
+    await screen.findByRole('option', { name: 'Cuaderno A4' })
+
+    await user.type(screen.getByRole('searchbox', { name: 'Buscar producto por nombre' }), 'lapiz')
+    expect(within(filtro).queryByRole('option', { name: 'Cuaderno A4' })).not.toBeInTheDocument()
+    expect(within(filtro).getByRole('option', { name: 'Todos los productos' })).toBeInTheDocument()
+
+    await user.selectOptions(filtro, '11')
+    await user.clear(screen.getByRole('searchbox', { name: 'Buscar producto por nombre' }))
+    await user.type(screen.getByRole('searchbox', { name: 'Buscar producto por nombre' }), 'cuaderno')
+    expect(within(filtro).getByRole('option', { name: 'Lápiz negro' })).toBeInTheDocument() // el elegido se conserva
+  })
+
   it('muestra el error si no se puede cargar el historial', async () => {
     mockApi({ ...baseRoutes, 'GET /api/stock-movements': () => Response.json({ error: 'Falló la base' }, { status: 500 }) })
     render(<InventoryPage />)
@@ -98,6 +115,33 @@ describe('InventoryPage', () => {
       await screen.findByRole('option', { name: 'Cuaderno A4 (stock 8)' })
       return user
     }
+
+    it('el formulario tiene un buscador con lupa que filtra el desplegable de productos', async () => {
+      mockApi(baseRoutes)
+      const user = await abrirFormulario()
+      const formulario = screen.getByRole('heading', { name: 'Nuevo movimiento de stock' }).closest('form')!
+
+      await user.type(within(formulario).getByRole('searchbox', { name: 'Buscar producto por nombre' }), 'lapiz')
+
+      expect(within(formulario).queryByRole('option', { name: /Cuaderno A4/ })).not.toBeInTheDocument()
+      expect(within(formulario).getByRole('option', { name: /Lápiz negro/ })).toBeInTheDocument()
+    })
+
+    it('el producto ya elegido sigue en la lista aunque se cambie la búsqueda, y sin coincidencias lo dice', async () => {
+      mockApi(baseRoutes)
+      const user = await abrirFormulario()
+      const formulario = screen.getByRole('heading', { name: 'Nuevo movimiento de stock' }).closest('form')!
+      await user.selectOptions(within(formulario).getByLabelText('Producto'), '10')
+
+      await user.type(within(formulario).getByRole('searchbox', { name: 'Buscar producto por nombre' }), 'lapiz')
+      expect(within(formulario).getByRole('option', { name: /Cuaderno A4/ })).toBeInTheDocument() // el elegido se conserva
+      expect(within(formulario).getByLabelText('Producto')).toHaveValue('10')
+
+      await user.selectOptions(within(formulario).getByLabelText('Producto'), '')
+      await user.clear(within(formulario).getByRole('searchbox', { name: 'Buscar producto por nombre' }))
+      await user.type(within(formulario).getByRole('searchbox', { name: 'Buscar producto por nombre' }), 'zzz')
+      expect(within(formulario).getByRole('option', { name: 'Ningún producto coincide' })).toBeInTheDocument()
+    })
 
     it('lista los productos con su stock y marca los dados de baja', async () => {
       mockApi(baseRoutes)
