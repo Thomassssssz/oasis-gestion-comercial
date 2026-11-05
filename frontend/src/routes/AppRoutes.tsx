@@ -3,6 +3,7 @@ import MainLayout from '@/components/layout/MainLayout'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 import LoginPage from '@/pages/auth/LoginPage'
 import AccountsPage from '@/pages/accounts/AccountsPage'
+import AuditPage from '@/pages/audit/AuditPage'
 import CategoriesPage from '@/pages/categories/CategoriesPage'
 import CustomersPage from '@/pages/customers/CustomersPage'
 import InventoryPage from '@/pages/inventory/InventoryPage'
@@ -27,6 +28,7 @@ export default function AppRoutes() {
           <Route path="/clientes" element={<CustomersPage />} />
           <Route path="/cuentas" element={<AccountsPage />} />
           <Route path="/reportes" element={<ReportsPage />} />
+          <Route path="/auditoria" element={<AuditPage />} />
           <Route path="/configuracion" element={<SettingsPage />} />
         </Route>
       </Route>

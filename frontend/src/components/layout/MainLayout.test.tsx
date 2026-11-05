@@ -36,7 +36,7 @@ describe('barra lateral', () => {
     await renderAt()
 
     const links = within(screen.getByRole('navigation', { name: 'Secciones' })).getAllByRole('link')
-    expect(links.map((link) => link.textContent)).toEqual(['Productos', 'Categorías', 'Inventario', 'Ventas', 'Clientes', 'Cuentas corrientes', 'Reportes', 'Configuración'])
+    expect(links.map((link) => link.textContent)).toEqual(['Productos', 'Categorías', 'Inventario', 'Ventas', 'Clientes', 'Cuentas corrientes', 'Reportes', 'Auditoría', 'Configuración'])
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
       '/productos',
       '/categorias',
@@ -45,6 +45,7 @@ describe('barra lateral', () => {
       '/clientes',
       '/cuentas',
       '/reportes',
+      '/auditoria',
       '/configuracion',
     ])
     links.forEach((link) => expect(link.querySelector('svg')).not.toBeNull())
