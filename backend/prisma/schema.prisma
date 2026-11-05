@@ -29,6 +29,7 @@ model Product {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   stockMovements StockMovement[]
+  saleItems      SaleItem[]
 
   @@index([categoryId])
 }
@@ -45,6 +46,8 @@ model User {
   updatedAt      DateTime        @updatedAt
   sessions       Session[]
   stockMovements StockMovement[]
+  sales          Sale[]          @relation("SaleCreatedBy")
+  annulledSales  Sale[]          @relation("SaleAnnulledBy")
 }
 
 // Sesión abierta de un usuario. Se guarda el hash del código de la cookie, no el código (D9).
@@ -59,11 +62,13 @@ model Session {
   @@index([userId])
 }
 
-// Tipos de movimiento de stock. Hoy solo hay carga inicial y ajuste manual;
-// ventas, anulaciones y compras agregan los suyos con sus módulos (D12).
+// Tipos de movimiento de stock: carga inicial, ajuste manual (D12), venta y anulación de venta (D13).
+// Las compras agregan el suyo con su módulo.
 enum StockMovementType {
   INITIAL_STOCK
   ADJUSTMENT
+  SALE
+  SALE_ANNULMENT
 }
 
 // Motivo de un ajuste manual: lista fija (D7).
@@ -86,8 +91,59 @@ model StockMovement {
   note      String?
   userId    Int
   user      User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  saleId    Int?
+  sale      Sale?             @relation(fields: [saleId], references: [id], onDelete: Restrict)
   createdAt DateTime          @default(now())
 
   @@index([productId, createdAt])
   @@index([userId])
+  @@index([saleId])
+}
+
+// Medios de pago de una venta (regla de negocio confirmada).
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  CARD
+  DIGITAL_WALLET
+}
+
+enum SaleStatus {
+  CONFIRMED
+  ANNULLED
+}
+
+// Una venta rápida (D13). El total NO se guarda: es la suma de sus ítems (D13-c).
+// No se edita ni se borra: se anula y queda el registro de quién, cuándo y por qué (D3).
+model Sale {
+  id              Int             @id @default(autoincrement())
+  status          SaleStatus      @default(CONFIRMED)
+  paymentMethod   PaymentMethod
+  userId          Int
+  user            User            @relation("SaleCreatedBy", fields: [userId], references: [id], onDelete: Restrict)
+  createdAt       DateTime        @default(now())
+  annulledAt      DateTime?
+  annulledById    Int?
+  annulledBy      User?           @relation("SaleAnnulledBy", fields: [annulledById], references: [id], onDelete: Restrict)
+  annulmentReason String?
+  items           SaleItem[]
+  stockMovements  StockMovement[]
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([annulledById])
+}
+
+// Un producto vendido en una venta. unitPrice es el precio de lista del día de la venta (D13-a).
+model SaleItem {
+  id        Int     @id @default(autoincrement())
+  saleId    Int
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity  Int
+  unitPrice Decimal @db.Decimal(12, 2)
+
+  @@unique([saleId, productId])
+  @@index([productId])
 }

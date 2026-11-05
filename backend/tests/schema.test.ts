@@ -170,4 +170,112 @@ describe("esquema de la base de datos", () => {
       await expect(prisma.stockMovement.create({ data: { ...data, note: "Se mojó" } })).resolves.toBeTruthy();
     });
   });
+
+  describe("ventas", () => {
+    async function setup() {
+      const category = await prisma.category.create({ data: { name: "Papelería" } });
+      const product = await prisma.product.create({
+        data: { name: "Cuaderno", categoryId: category.id, salePrice: "10.00" },
+      });
+      const user = await prisma.user.create({ data: { username: "ana", fullName: "Ana", passwordHash: "x" } });
+      const sale = await prisma.sale.create({ data: { userId: user.id, paymentMethod: "CASH" } });
+      return { productId: product.id, userId: user.id, saleId: sale.id };
+    }
+
+    it("una venta nace confirmada y sin datos de anulación", async () => {
+      const { saleId } = await setup();
+
+      const sale = await prisma.sale.findUniqueOrThrow({ where: { id: saleId } });
+
+      expect(sale).toMatchObject({ status: "CONFIRMED", annulledAt: null, annulledById: null, annulmentReason: null });
+    });
+
+    it("no permite marcar una venta como anulada sin quién, cuándo y por qué", async () => {
+      const { saleId, userId } = await setup();
+
+      await expect(prisma.sale.update({ where: { id: saleId }, data: { status: "ANNULLED" } })).rejects.toThrow();
+      await expect(
+        prisma.sale.update({
+          where: { id: saleId },
+          data: { status: "ANNULLED", annulledAt: new Date(), annulledById: userId, annulmentReason: "   " },
+        }),
+      ).rejects.toThrow();
+      await expect(
+        prisma.sale.update({
+          where: { id: saleId },
+          data: { status: "ANNULLED", annulledAt: new Date(), annulledById: userId, annulmentReason: "Error" },
+        }),
+      ).resolves.toBeTruthy();
+    });
+
+    it("no permite datos de anulación en una venta confirmada", async () => {
+      const { saleId } = await setup();
+
+      await expect(prisma.sale.update({ where: { id: saleId }, data: { annulmentReason: "Error" } })).rejects.toThrow();
+    });
+
+    it("no permite un ítem con cantidad cero, negativa o con precio cero", async () => {
+      const { saleId, productId } = await setup();
+      const item = { saleId, productId, quantity: 1, unitPrice: "10.00" };
+
+      await expect(prisma.saleItem.create({ data: { ...item, quantity: 0 } })).rejects.toThrow();
+      await expect(prisma.saleItem.create({ data: { ...item, quantity: -1 } })).rejects.toThrow();
+      await expect(prisma.saleItem.create({ data: { ...item, unitPrice: "0.00" } })).rejects.toThrow();
+      await expect(prisma.saleItem.create({ data: item })).resolves.toBeTruthy();
+    });
+
+    it("no permite repetir un producto dentro de la misma venta", async () => {
+      const { saleId, productId } = await setup();
+      await prisma.saleItem.create({ data: { saleId, productId, quantity: 1, unitPrice: "10.00" } });
+
+      await expect(
+        prisma.saleItem.create({ data: { saleId, productId, quantity: 2, unitPrice: "10.00" } }),
+      ).rejects.toThrow();
+    });
+
+    it("guarda el precio con dos decimales exactos en el ítem", async () => {
+      const { saleId, productId } = await setup();
+
+      const item = await prisma.saleItem.create({ data: { saleId, productId, quantity: 3, unitPrice: "1500.55" } });
+
+      expect(item.unitPrice.toFixed(2)).toBe("1500.55");
+    });
+
+    it("no permite borrar una venta con ítems, ni un producto o usuario que tienen ventas", async () => {
+      const { saleId, productId, userId } = await setup();
+      await prisma.saleItem.create({ data: { saleId, productId, quantity: 1, unitPrice: "10.00" } });
+
+      await expect(prisma.sale.delete({ where: { id: saleId } })).rejects.toThrow();
+      await expect(prisma.product.delete({ where: { id: productId } })).rejects.toThrow();
+      await expect(prisma.user.delete({ where: { id: userId } })).rejects.toThrow();
+    });
+
+    it("los movimientos de venta exigen venta y cantidad negativa; los de anulación, cantidad positiva", async () => {
+      const { saleId, productId, userId } = await setup();
+      const base = { productId, userId };
+
+      await expect(prisma.stockMovement.create({ data: { ...base, type: "SALE", quantity: -1 } })).rejects.toThrow();
+      await expect(prisma.stockMovement.create({ data: { ...base, type: "SALE", quantity: 1, saleId } })).rejects.toThrow();
+      await expect(prisma.stockMovement.create({ data: { ...base, type: "SALE", quantity: -1, saleId } })).resolves.toBeTruthy();
+      await expect(
+        prisma.stockMovement.create({ data: { ...base, type: "SALE_ANNULMENT", quantity: -1, saleId } }),
+      ).rejects.toThrow();
+      await expect(
+        prisma.stockMovement.create({ data: { ...base, type: "SALE_ANNULMENT", quantity: 1, saleId } }),
+      ).resolves.toBeTruthy();
+    });
+
+    it("un ajuste o un stock inicial no pueden llevar venta", async () => {
+      const { saleId, productId, userId } = await setup();
+
+      await expect(
+        prisma.stockMovement.create({
+          data: { productId, userId, type: "ADJUSTMENT", quantity: 1, reason: "PHYSICAL_COUNT", saleId },
+        }),
+      ).rejects.toThrow();
+      await expect(
+        prisma.stockMovement.create({ data: { productId, userId, type: "INITIAL_STOCK", quantity: 1, saleId } }),
+      ).rejects.toThrow();
+    });
+  });
 });

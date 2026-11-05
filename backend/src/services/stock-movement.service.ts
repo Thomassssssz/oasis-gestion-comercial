@@ -15,6 +15,7 @@ function toDto(movement: StockMovementRecord) {
     reason: movement.reason,
     note: movement.note,
     userId: movement.userId,
+    saleId: movement.saleId,
     userName: movement.user.fullName,
     createdAt: movement.createdAt,
   };

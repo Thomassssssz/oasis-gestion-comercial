@@ -257,6 +257,8 @@ describe("POST /api/stock-movements – datos inválidos", () => {
     ["sin producto", { type: "INITIAL_STOCK", quantity: 5 }],
     ["producto no numérico", { type: "INITIAL_STOCK", productId: "uno", quantity: 5 }],
     ["tipo desconocido", { type: "VENTA", productId: 1, quantity: 5 }],
+    ["tipo de venta (solo lo crea el módulo de ventas)", { type: "SALE", productId: 1, quantity: -5 }],
+    ["tipo de anulación de venta", { type: "SALE_ANNULMENT", productId: 1, quantity: 5 }],
     ["sin tipo", { productId: 1, quantity: 5 }],
     ["cuerpo vacío", {}],
   ])("responde 400 con %s", async (_name, body) => {

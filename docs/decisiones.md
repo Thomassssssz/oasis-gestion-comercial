@@ -97,3 +97,18 @@ Decisiones elegidas por el autor (a, b, c) y reglas que propuso Claude (d a g) p
 - **f) Reglas del ajuste (propuesta):** la cantidad es un entero distinto de cero (D6), lleva un motivo de la lista fija de D7 y, si el motivo es "otro", una nota obligatoria. Un ajuste no puede dejar el stock por debajo de cero (misma idea que D2). **Esto resuelve en la práctica el punto pendiente de "stock negativo"; confirmar con los propietarios.**
 - **g) Trazabilidad:** cada movimiento guarda quién lo hizo (`userId`) y cuándo (`createdAt`). Los movimientos no se editan ni se borran: un error se corrige con otro movimiento. Un producto dado de baja puede recibir ajustes (por ejemplo, para llevar su stock a cero).
 - **Protección contra dos operaciones a la vez:** al registrar un movimiento se bloquea la fila del producto durante la operación, así dos ajustes simultáneos no pueden dejar el stock en negativo.
+
+## D13 – Cómo funciona la venta rápida
+
+Decisiones elegidas por el autor (a, b, c) y reglas que propuso Claude (d a i) para aplicar D2, D3 y D12. Las reglas propuestas hay que revisarlas y poder defenderlas.
+
+- **a) Precio de lista siempre (autor):** en la venta rápida no se puede cambiar el precio de un producto. La venta guarda el precio que tenía el producto ese día (`unitPrice` en cada ítem), así un cambio de precio posterior no altera las ventas viejas. Los descuentos se hacen en la venta completa (módulo posterior).
+- **b) La anulación devuelve el stock (autor):** al anular una venta, cada ítem vuelve al inventario con un movimiento propio de tipo `SALE_ANNULMENT`, que queda registrado con quién y cuándo.
+- **c) El total se calcula, no se guarda (autor):** el total de una venta es la suma de `quantity × unitPrice` de sus ítems. No hay un campo `total`, así que no puede quedar desactualizado y la tabla se mantiene en 3FN.
+- **d) Qué lleva una venta:** medio de pago (efectivo, transferencia, tarjeta o billetera virtual), al menos un producto con su cantidad (entero mayor que cero), y quién la registró. Un mismo producto no se repite dentro de una venta.
+- **e) Descuento de stock (D2):** confirmar la venta descuenta el stock con un movimiento de tipo `SALE` por ítem. Si algún producto no tiene stock suficiente, no se registra nada (todo o nada).
+- **f) Qué se puede vender:** solo productos activos. Un producto dado de baja no se puede vender.
+- **g) Las ventas no se editan ni se borran (D3):** se anulan, y la venta anulada queda en el historial con su motivo, quién la anuló y cuándo. Una venta anulada no se puede volver a anular.
+- **h) Motivo de anulación obligatorio (propuesta):** para que quede registrado por qué se anuló (hasta 500 caracteres).
+- **i) Quién puede anular (propuesta):** cualquier usuario con sesión, porque no hay roles (D4). Si más adelante se quiere limitar, se define con los propietarios.
+- **Protección contra operaciones simultáneas:** al vender o anular se bloquean las filas de los productos involucrados, así dos ventas al mismo tiempo no pueden vender el mismo stock dos veces.

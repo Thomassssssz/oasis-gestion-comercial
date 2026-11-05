@@ -79,16 +79,17 @@ El **stock no es un campo** de Product: se calcula sumando los movimientos de in
 |---|---|---|
 | id | entero, clave primaria | autoincremental |
 | productId | entero, clave foránea → Product | no se puede borrar un producto que tiene movimientos |
-| type | `INITIAL_STOCK` o `ADJUSTMENT` | stock inicial o ajuste manual (las ventas y compras agregan sus tipos en sus módulos) |
+| type | `INITIAL_STOCK`, `ADJUSTMENT`, `SALE` o `SALE_ANNULMENT` | stock inicial, ajuste manual, venta y anulación de venta (las compras agregan su tipo en su módulo) |
 | quantity | entero con signo | positivo = entra mercadería, negativo = sale. Nunca cero |
 | reason | `PHYSICAL_COUNT`, `DAMAGE_OR_LOSS`, `SUPPLIER_RETURN` u `OTHER` | motivo del ajuste (conteo físico, rotura o pérdida, devolución a proveedor, otro). Solo los ajustes lo llevan |
 | note | texto, opcional | obligatoria cuando el motivo es `OTHER` |
 | userId | entero, clave foránea → User | quién registró el movimiento (auditoría). No se puede borrar un usuario con movimientos |
+| saleId | entero, clave foránea → Sale, opcional | la venta que originó el movimiento. Solo `SALE` y `SALE_ANNULMENT` la llevan |
 | createdAt | fecha y hora | cuándo se registró |
 
 El **stock de un producto** es la suma de `quantity` de todos sus movimientos (D1). Un producto está en **alerta** cuando su stock es igual o menor a `minStock` (D5). Los movimientos no se editan ni se borran: un error se corrige con otro movimiento (D12).
 
-**Reglas que hace cumplir la propia base de datos** (además del código): cantidad distinta de cero; solo los ajustes llevan motivo y todos lo llevan; el stock inicial siempre es positivo; el motivo `OTHER` exige una nota con contenido.
+**Reglas que hace cumplir la propia base de datos** (además del código): cantidad distinta de cero; solo los ajustes llevan motivo y todos lo llevan; el stock inicial siempre es positivo; el motivo `OTHER` exige una nota con contenido; solo los movimientos de venta y de anulación llevan venta; una venta saca stock (cantidad negativa) y su anulación lo devuelve (positiva).
 
 ### Por qué está en 3FN
 
@@ -101,4 +102,45 @@ El **stock de un producto** es la suma de `quantity` de todos sus movimientos (D
 
 - Que un ajuste no pueda dejar el stock por debajo de cero (propuesta de Claude, ver D12-f).
 - Que el listado de motivos de ajuste sea exactamente el de D7.
+
+## Módulo 3 – Ventas rápidas
+
+### Sale (Venta)
+
+| Campo | Tipo | Detalle |
+|---|---|---|
+| id | entero, clave primaria | autoincremental |
+| status | `CONFIRMED` o `ANNULLED` | una venta nace confirmada; se puede anular, nunca borrar (D3) |
+| paymentMethod | `CASH`, `TRANSFER`, `CARD` o `DIGITAL_WALLET` | efectivo, transferencia, tarjeta o billetera virtual |
+| userId | entero, clave foránea → User | quién registró la venta (auditoría) |
+| createdAt | fecha y hora | cuándo se registró |
+| annulledAt, annulledById, annulmentReason | fecha, clave foránea → User, texto | cuándo, quién y por qué se anuló. Vacíos mientras la venta está confirmada; los tres obligatorios si está anulada |
+
+### SaleItem (Ítem de venta)
+
+| Campo | Tipo | Detalle |
+|---|---|---|
+| id | entero, clave primaria | autoincremental |
+| saleId | entero, clave foránea → Sale | a qué venta pertenece |
+| productId | entero, clave foránea → Product | qué producto se vendió. Un producto no se repite dentro de la misma venta (clave única `saleId` + `productId`) |
+| quantity | entero mayor que cero | unidades vendidas (D6) |
+| unitPrice | decimal(12,2) mayor que cero | precio de lista **del día de la venta** (D13-a) |
+
+El **total de la venta no se guarda**: es la suma de `quantity × unitPrice` de sus ítems (D13-c). Confirmar una venta crea un movimiento de stock `SALE` por ítem; anularla crea uno `SALE_ANNULMENT` por ítem (D13).
+
+**Reglas que hace cumplir la propia base de datos:** una venta confirmada no tiene datos de anulación y una anulada los tiene todos (con motivo no vacío); cantidad y precio de cada ítem mayores que cero; no se puede borrar una venta, ni un producto o usuario que tengan ventas.
+
+### Por qué está en 3FN
+
+- Todas las tablas tienen clave de un solo campo (`id`): se cumple 2FN. `SaleItem` también tiene una clave única compuesta (`saleId`, `productId`), pero `quantity` y `unitPrice` dependen de la clave completa (de qué producto en qué venta), no de una parte.
+- Los datos del producto (nombre, categoría) y del usuario (nombre) no se repiten en `Sale` ni `SaleItem`: se llega a ellos con `productId` y `userId`.
+- `unitPrice` **no** es un dato repetido de `Product.salePrice`: es el precio histórico del día de la venta, que no se puede deducir del precio actual (puede haber cambiado). Por eso se guarda en el ítem.
+- No hay datos derivados guardados: el total de la venta y el stock se calculan.
+- Los campos de anulación (`annulledAt`, `annulledById`, `annulmentReason`) describen a la venta como un todo y dependen solo de su `id`.
+
+### Supuestos a confirmar (no están relevados)
+
+- Que cualquier usuario pueda anular una venta (hoy no hay roles, D4).
+- Que el motivo de anulación sea obligatorio (propuesta de Claude, D13-h).
+- Que no haga falta numerar las ventas con un número de comprobante propio (hoy se identifican por su `id`).
 

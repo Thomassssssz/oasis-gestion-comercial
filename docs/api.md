@@ -69,4 +69,22 @@ Cuerpo de `POST` según el tipo:
 - Stock inicial: `{ "type": "INITIAL_STOCK", "productId", "quantity", "note" }`. La cantidad es un entero mayor que cero. Solo se puede cargar si el producto todavía no tiene movimientos (409 si ya tiene).
 - Ajuste: `{ "type": "ADJUSTMENT", "productId", "quantity", "reason", "note" }`. La cantidad es un entero distinto de cero: positiva suma y negativa resta. `reason` es uno de `PHYSICAL_COUNT` (conteo físico), `DAMAGE_OR_LOSS` (rotura o pérdida), `SUPPLIER_RETURN` (devolución a proveedor) u `OTHER` (otro). Con `OTHER`, `note` es obligatoria.
 
+Los movimientos que devuelve el `GET` incluyen también los de venta (`SALE`) y de anulación de venta (`SALE_ANNULMENT`), con su `saleId`; esos tipos los crea el módulo de ventas, no se pueden registrar con este `POST`.
+
 Reglas: la `note` es opcional (hasta 500 caracteres). Un ajuste no puede dejar el stock en negativo (409 con el stock actual en el mensaje). Un producto que no existe responde 404. Quién registró el movimiento sale de la sesión, nunca del cuerpo del pedido. No hay `PUT` ni `DELETE`: un movimiento no se edita ni se borra, un error se corrige con otro movimiento (D12).
+
+## Ventas
+
+Requieren sesión (401 si no hay). Venta rápida: el precio siempre es el de lista del producto (D13-a). El total no se guarda: se calcula sumando los ítems (D13-c).
+
+| Método y ruta | Qué hace | Respuestas |
+|---|---|---|
+| `GET /sales` | Lista del más nuevo al más viejo, con total e ítems. Filtros opcionales: `status` (`CONFIRMED` o `ANNULLED`), `paymentMethod`, `limit` (de 1 a 200, 50 por defecto) | 200, 400 |
+| `GET /sales/:id` | Devuelve una venta con su detalle | 200, 400, 404 |
+| `POST /sales` | Registra una venta. Cuerpo: `{ "paymentMethod", "items": [{ "productId", "quantity" }] }` | 201, 400, 409 |
+| `POST /sales/:id/annul` | Anula una venta. Cuerpo: `{ "reason" }` | 200, 400, 404, 409 |
+
+`paymentMethod` es uno de `CASH`, `TRANSFER`, `CARD`, `DIGITAL_WALLET`. Cada venta devuelve `total` e importes como texto con 2 decimales, `status`, `userName` (quién la registró), `items` (con `productName`, `quantity`, `unitPrice` y `subtotal`) y `annulment` (`null` si está confirmada; si no, `at`, `byName` y `reason`).
+
+Reglas: hace falta al menos un producto (hasta 100) y no se puede repetir un producto en la misma venta; la cantidad es un entero mayor que cero. Si un producto no existe responde 400. Si un producto está dado de baja o no tiene stock suficiente, responde 409 con el producto y su stock actual, y **no se guarda nada** (todo o nada). Al confirmar se descuenta el stock; al anular se devuelve con un movimiento propio. Una venta anulada no se puede volver a anular (409) y sigue en el historial. El motivo de anulación es obligatorio (hasta 500 caracteres). Quién registra y quién anula sale de la sesión, nunca del cuerpo del pedido. No hay `PUT` ni `DELETE` (D3).
+
