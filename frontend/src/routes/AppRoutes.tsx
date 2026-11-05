@@ -8,6 +8,7 @@ import CustomersPage from '@/pages/customers/CustomersPage'
 import InventoryPage from '@/pages/inventory/InventoryPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import ProductsPage from '@/pages/products/ProductsPage'
+import ReportsPage from '@/pages/reports/ReportsPage'
 import SalesPage from '@/pages/sales/SalesPage'
 import SettingsPage from '@/pages/settings/SettingsPage'
 
@@ -25,6 +26,7 @@ export default function AppRoutes() {
           <Route path="/ventas" element={<SalesPage />} />
           <Route path="/clientes" element={<CustomersPage />} />
           <Route path="/cuentas" element={<AccountsPage />} />
+          <Route path="/reportes" element={<ReportsPage />} />
           <Route path="/configuracion" element={<SettingsPage />} />
         </Route>
       </Route>

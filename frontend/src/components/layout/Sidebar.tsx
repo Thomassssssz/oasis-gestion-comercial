@@ -1,4 +1,4 @@
-import { Boxes, Package, PanelLeftClose, PanelLeftOpen, Settings, ShoppingCart, Tags, Users, Wallet, X, type LucideIcon } from 'lucide-react'
+import { BarChart3, Boxes, Package, PanelLeftClose, PanelLeftOpen, Settings, ShoppingCart, Tags, Users, Wallet, X, type LucideIcon } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -11,6 +11,7 @@ const sections: { to: string; label: string; icon: LucideIcon }[] = [
   { to: '/ventas', label: 'Ventas', icon: ShoppingCart },
   { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/cuentas', label: 'Cuentas corrientes', icon: Wallet },
+  { to: '/reportes', label: 'Reportes', icon: BarChart3 },
   { to: '/configuracion', label: 'Configuración', icon: Settings },
 ]
 

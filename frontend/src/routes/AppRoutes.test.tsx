@@ -14,6 +14,15 @@ const screens = {
   'GET /api/categories': () => [],
   'GET /api/customers': () => [],
   'GET /api/accounts': () => [],
+  'GET /api/reports/debt': () => ({ totalBalance: '0.00', totalPayable: '0.00', accounts: [] }),
+  'GET /api/reports/sales': () => ({
+    from: '2026-10-06',
+    to: '2026-11-04',
+    totals: { count: 0, total: '0.00', average: '0.00' },
+    byDay: [],
+    byPaymentMethod: [],
+    topProducts: [],
+  }),
   'GET /api/settings': () => ({ lateFeePercent: '5.00', updatedAt: '2026-11-04T12:00:00.000Z', updatedBy: null }),
 }
 
@@ -101,6 +110,15 @@ describe('rutas y sesión', () => {
     fireEvent.click(await screen.findByRole('link', { name: 'Cuentas corrientes' }))
 
     expect(await screen.findByRole('heading', { name: 'Cuentas corrientes' })).toBeInTheDocument()
+  })
+
+  it('la sección Reportes está en el menú y lleva a su pantalla', async () => {
+    mockApi({ 'GET /api/auth/me': () => ana, ...screens })
+    renderAt('/productos')
+
+    fireEvent.click(await screen.findByRole('link', { name: 'Reportes' }))
+
+    expect(await screen.findByRole('heading', { name: 'Reportes' })).toBeInTheDocument()
   })
 
   it('una dirección que no existe muestra "Página no encontrada"', async () => {
