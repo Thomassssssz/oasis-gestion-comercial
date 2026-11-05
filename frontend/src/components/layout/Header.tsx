@@ -26,8 +26,8 @@ type Props = {
 // Cabecera de todas las pantallas con sesión: título, estado de la conexión con la API y quién está usando el sistema.
 export default function Header({ apiState, onRetry, user, onLogout }: Props) {
   return (
-    <header className="mb-6 print:hidden flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
-      <h1 className="text-2xl font-bold">Oasis – Gestión Comercial</h1>
+    <header className="mb-6 print:hidden flex flex-wrap items-center justify-between gap-3 border-b-2 border-dashed border-primary/30 pb-4">
+      <h1 className="text-2xl font-bold text-ink">Oasis – Gestión Comercial</h1>
       <div className="flex flex-wrap items-center gap-2">
         <p className={`rounded-full px-3 py-1 text-sm font-semibold ${statusStyles[apiState]}`} role="status">
           {messages[apiState]}

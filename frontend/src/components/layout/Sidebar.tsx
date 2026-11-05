@@ -1,17 +1,19 @@
-import { BarChart3, Boxes, Package, PanelLeftClose, PanelLeftOpen, Settings, ShoppingCart, Tags, Users, X, type LucideIcon } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { Bookmark, Library, NotebookText, PanelLeftClose, PanelLeftOpen, PencilRuler, Receipt, Settings, TrendingUp, X, type LucideIcon } from 'lucide-react'
+import { Link, NavLink } from 'react-router-dom'
+import { OasisEmblem } from '@/components/brand/OasisLogo'
+import { PencilRow } from '@/components/brand/Stationery'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-// Secciones del sistema, en el orden en que se muestran en la barra.
-const sections: { to: string; label: string; icon: LucideIcon }[] = [
-  { to: '/productos', label: 'Productos', icon: Package },
-  { to: '/categorias', label: 'Categorías', icon: Tags },
-  { to: '/inventario', label: 'Inventario', icon: Boxes },
-  { to: '/ventas', label: 'Ventas', icon: ShoppingCart },
-  { to: '/clientes', label: 'Clientes', icon: Users },
-  { to: '/reportes', label: 'Reportes', icon: BarChart3 },
-  { to: '/configuracion', label: 'Configuración', icon: Settings },
+// Secciones del sistema, en el orden en que se muestran en la barra. Cada una lleva su ícono de papelería sobre un cuadradito de color.
+const sections: { to: string; label: string; icon: LucideIcon; chip: string }[] = [
+  { to: '/productos', label: 'Productos', icon: NotebookText, chip: 'bg-[#e2592b] text-white' },
+  { to: '/categorias', label: 'Categorías', icon: Bookmark, chip: 'bg-sun text-wood' },
+  { to: '/inventario', label: 'Inventario', icon: Library, chip: 'bg-[#5aa6e0] text-ink' },
+  { to: '/ventas', label: 'Ventas', icon: Receipt, chip: 'bg-leaf text-white' },
+  { to: '/clientes', label: 'Clientes', icon: PencilRuler, chip: 'bg-[#e2592b] text-white' },
+  { to: '/reportes', label: 'Reportes', icon: TrendingUp, chip: 'bg-sun text-wood' },
+  { to: '/configuracion', label: 'Configuración', icon: Settings, chip: 'bg-white/90 text-ink' },
 ]
 
 type Props = {
@@ -29,18 +31,29 @@ export default function Sidebar({ collapsed, mobileOpen, onToggleCollapsed, onCl
       id="sidebar"
       data-state={mobileOpen ? 'open' : 'closed'}
       className={cn(
-        'print:hidden fixed inset-y-0 left-0 z-40 flex w-56 flex-col gap-2 border-r border-border bg-white p-3 transition-transform',
-        'md:sticky md:top-0 md:h-screen md:shrink-0 md:translate-x-0 md:transition-[width]',
+        'print:hidden fixed inset-y-0 left-0 z-40 flex w-60 flex-col gap-3 bg-ink p-3 text-white shadow-xl transition-transform',
+        'md:sticky md:top-0 md:h-screen md:shrink-0 md:translate-x-0 md:shadow-none md:transition-[width]',
         mobileOpen ? 'translate-x-0' : 'max-md:invisible max-md:-translate-x-full',
         collapsed && 'md:w-16',
       )}
     >
-      <div className={cn('flex items-center justify-between', collapsed && 'md:justify-center')}>
-        <span className={cn('px-2 text-sm font-semibold text-muted-foreground', collapsed && 'md:hidden')}>Menú</span>
+      {/* El emblema y el nombre llevan a la pantalla de inicio. Con la barra angosta queda solo el emblema. */}
+      <Link
+        to="/"
+        onClick={onClose}
+        aria-label="Ir al inicio"
+        className={cn('flex items-center gap-2.5 rounded-md px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-sun', collapsed && 'md:justify-center')}
+      >
+        <OasisEmblem className="size-10" />
+        <span className={cn('font-script text-[1.65rem] leading-none text-white', collapsed && 'md:hidden')}>Ediciones Oasis</span>
+      </Link>
+
+      <div className={cn('flex items-center justify-between border-b border-white/15 pb-3', collapsed && 'md:justify-center')}>
+        <span className={cn('px-2 text-sm font-semibold text-white/70', collapsed && 'md:hidden')}>Menú</span>
         <Button
           variant="ghost"
           size="icon"
-          className="hidden md:inline-flex"
+          className="hidden text-white hover:bg-white/10 md:inline-flex"
           aria-label={collapsed ? 'Expandir menú' : 'Contraer menú'}
           aria-expanded={!collapsed}
           aria-controls="sidebar"
@@ -48,13 +61,13 @@ export default function Sidebar({ collapsed, mobileOpen, onToggleCollapsed, onCl
         >
           {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
         </Button>
-        <Button variant="ghost" size="icon" className="md:hidden" aria-label="Cerrar menú" onClick={onClose}>
+        <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 md:hidden" aria-label="Cerrar menú" onClick={onClose}>
           <X />
         </Button>
       </div>
 
       <nav aria-label="Secciones" className="flex flex-col gap-1">
-        {sections.map(({ to, label, icon: Icon }) => (
+        {sections.map(({ to, label, icon: Icon, chip }) => (
           <NavLink
             key={to}
             to={to}
@@ -62,18 +75,23 @@ export default function Sidebar({ collapsed, mobileOpen, onToggleCollapsed, onCl
             onClick={onClose}
             className={({ isActive }) =>
               cn(
-                'flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium',
+                'flex h-11 items-center gap-3 rounded-lg px-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-sun',
                 collapsed && 'md:justify-center md:px-0',
-                isActive ? 'bg-primary text-primary-foreground' : 'hover:bg-muted',
+                isActive ? 'bg-white text-ink shadow-sm' : 'text-white/90 hover:bg-white/10',
               )
             }
           >
-            <Icon className="size-5 shrink-0" aria-hidden="true" />
+            <span className={cn('grid size-8 shrink-0 place-items-center rounded-md', chip)}>
+              <Icon className="size-[18px]" aria-hidden="true" />
+            </span>
             {/* Con la barra angosta el nombre se oculta a la vista pero lo siguen leyendo los lectores de pantalla. */}
             <span className={cn(collapsed && 'md:sr-only')}>{label}</span>
           </NavLink>
         ))}
       </nav>
+
+      {/* Adorno: lápices de colores al pie de la barra. Se ocultan con la barra angosta. */}
+      <PencilRow className={cn('mt-auto opacity-95', collapsed && 'md:hidden')} />
     </aside>
   )
 }

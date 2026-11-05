@@ -89,7 +89,7 @@ export default function MainLayout() {
       {/* Fondo oscuro detrás de la barra abierta en pantallas chicas: tocarlo la cierra. */}
       {mobileOpen && <div aria-hidden="true" className="fixed inset-0 z-30 bg-black/30 md:hidden" onClick={() => setMobileOpen(false)} />}
 
-      <div className="min-w-0 flex-1">
+      <div className="paper min-w-0 flex-1">
         <div className="mx-auto max-w-5xl px-4 py-6">
           <Button
             variant="outline"

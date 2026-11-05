@@ -278,7 +278,7 @@ export default function SaleForm({ products, customers, onSaved }: Props) {
         </p>
       )}
 
-      <Button type="submit" disabled={saving || cart.length === 0}>
+      <Button type="submit" variant="accent" disabled={saving || cart.length === 0}>
         Confirmar venta
       </Button>
     </form>

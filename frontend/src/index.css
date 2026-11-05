@@ -1,19 +1,28 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/atkinson-hyperlegible-next';
+@import '@fontsource/yellowtail';
 
-/* Colores del sistema (misma convención que shadcn/ui, tema "neutral").
-   Para cambiar la paleta de toda la app se tocan solo estos valores. */
+/* Colores del sistema (misma convención que shadcn/ui).
+   La paleta sale del frente del local: paredes azules, persianas naranjas, cartel marrón y chapa amarilla.
+   Para cambiar los colores de toda la app se tocan solo estos valores. */
 :root {
-  --background: oklch(0.985 0.002 247);
-  --foreground: oklch(0.278 0.033 257);
-  --primary: oklch(0.21 0.034 265);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.003 265);
-  --secondary-foreground: oklch(0.21 0.034 265);
-  --muted: oklch(0.967 0.003 265);
-  --muted-foreground: oklch(0.552 0.016 285);
+  --background: #f3f7fc; /* papel con un toque azul */
+  --foreground: #1b2a41; /* tinta */
+  --primary: #245a9e; /* azul de la pared (texto blanco encima: contraste 6,9:1) */
+  --primary-foreground: #ffffff;
+  --secondary: #fdf1cf; /* amarillo suave */
+  --secondary-foreground: #4a2d22;
+  --muted: #e6eef9; /* encabezados de tabla */
+  --muted-foreground: #4f6079;
   --destructive: oklch(0.577 0.245 27);
-  --border: oklch(0.922 0.004 286);
-  --ring: oklch(0.708 0.01 286);
+  --border: #cfdbeb;
+  --ring: #e2592b; /* naranja de las persianas: el aro de foco */
+  --accent: #c2410c; /* naranja oscuro para botones con texto blanco (contraste 5,2:1) */
+  --accent-foreground: #ffffff;
+  --ink: #17345f; /* azul tinta del menú lateral */
+  --wood: #4a2d22; /* marrón del cartel */
+  --sun: #f4b82f; /* amarillo del cartel chico: solo decorativo o con texto oscuro */
+  --leaf: #3f9b5a;
   --radius: 0.5rem;
 }
 
@@ -30,11 +39,48 @@
   --color-destructive: var(--destructive);
   --color-border: var(--border);
   --color-ring: var(--ring);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-ink: var(--ink);
+  --color-wood: var(--wood);
+  --color-sun: var(--sun);
+  --color-leaf: var(--leaf);
   --radius-md: calc(var(--radius) - 2px);
+  --font-sans: 'Atkinson Hyperlegible Next Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-script: 'Yellowtail', 'Brush Script MT', cursive;
 }
 
 @layer base {
   body {
     @apply bg-background font-sans text-foreground;
+  }
+
+  /* Los títulos de cada sección llevan un resaltador amarillo, como en un cuaderno. */
+  main h2 {
+    @apply w-fit text-ink;
+    background: linear-gradient(transparent 62%, rgb(244 184 47 / 0.55) 62%);
+  }
+}
+
+@layer components {
+  /* Hoja rayada con margen rojo a la izquierda (el fondo de las pantallas con sesión). */
+  .paper {
+    background-color: var(--background);
+    background-image:
+      linear-gradient(90deg, transparent 0.5rem, rgb(226 89 43 / 0.3) 0.5rem 0.56rem, transparent 0.56rem),
+      repeating-linear-gradient(transparent 0 1.75rem, rgb(90 166 224 / 0.16) 1.75rem 1.8rem);
+  }
+
+  /* Persianas de chapa: franjas verticales naranjas, como las del local. */
+  .shutter {
+    background-color: #e2592b;
+    background-image: repeating-linear-gradient(90deg, rgb(0 0 0 / 0.14) 0 2px, transparent 2px 22px);
+  }
+}
+
+@media print {
+  body,
+  .paper {
+    background: none;
   }
 }
