@@ -5,6 +5,10 @@ import { createRequireAuth } from "./middlewares/auth.middleware.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
 import { createAuthRepository } from "./repositories/auth.repository.js";
 import { createAuthRouter } from "./routes/auth.routes.js";
+import { createAuditTrail } from "./middlewares/audit.middleware.js";
+import { createAuditRepository } from "./repositories/audit.repository.js";
+import { createAuditRouter } from "./routes/audit.routes.js";
+import { createAuditService } from "./services/audit.service.js";
 import { createCategoryRouter } from "./routes/category.routes.js";
 import { createCreditAccountRouter } from "./routes/credit-account.routes.js";
 import { createCustomerRouter } from "./routes/customer.routes.js";
@@ -34,6 +38,10 @@ export function createApp({ prisma, loginLimiter = createLoginLimiter(), now, bu
   const authService = createAuthService(createAuthRepository(prisma), loginLimiter, now);
   const requireAuth = createRequireAuth(authService);
 
+  // Auditoría: anota quién hizo cada operación que cambia datos (D20).
+  const audit = createAuditService(createAuditRepository(prisma));
+  app.use("/api", createAuditTrail(audit));
+
   // Pública: sirve para saber si el servidor está vivo.
   app.use("/api/health", healthRouter);
   // Login y compañía: cada ruta decide si exige sesión.
@@ -47,6 +55,7 @@ export function createApp({ prisma, loginLimiter = createLoginLimiter(), now, bu
   app.use("/api/accounts", requireAuth, createCreditAccountRouter(prisma, businessNow));
   app.use("/api/reports", requireAuth, createReportRouter(prisma, businessNow));
   app.use("/api/settings", requireAuth, createSettingRouter(prisma));
+  app.use("/api/audit", requireAuth, createAuditRouter(audit));
 
   // Cualquier ruta que no exista responde 404 en formato JSON.
   app.use((_req, res) => {

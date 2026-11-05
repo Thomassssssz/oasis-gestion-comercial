@@ -281,3 +281,32 @@ Un pago **no modifica** `CreditAccount.dueDate` (regla confirmada). Nunca se edi
 
 - La fórmula completa del recargo y el orden de imputación de los pagos (D18-a a D18-e).
 - Que no se admita saldo a favor (D18-h) y qué pasa al reabrir una ficha cancelada (D18-l).
+
+
+## Módulo 8 (parte) – Auditoría
+
+### AuditLog (Registro de auditoría)
+
+| Campo | Tipo | Detalle |
+|---|---|---|
+| id | entero, clave primaria | autoincremental |
+| userId | entero, clave foránea → User | quién realizó la operación |
+| action | texto | clave de la acción (`SALE_REGISTERED`, `SALE_ANNULLED`, `ACCOUNT_PAYMENT_REGISTERED`…) |
+| entityType | texto | tipo de lo afectado (`Sale`, `Product`, `CreditAccount`…) |
+| entityId | entero, opcional | número de lo afectado |
+| summary | texto | descripción en español de lo que se hizo |
+| createdAt | fecha y hora | cuándo |
+
+**Reglas que hace cumplir la propia base de datos:** acción, tipo y resumen no vacíos; **no se puede modificar ni borrar una fila** (disparador `AuditLog_append_only`); no se puede borrar un usuario con anotaciones.
+
+### Por qué está en 3FN
+
+- Clave de un solo campo (`id`): cumple 2FN.
+- El nombre del usuario no se repite: se llega con `userId`.
+- `entityType` + `entityId` apuntan a una fila de cualquier tabla, por eso **no es una clave foránea** (una clave foránea solo puede apuntar a una tabla). Es una referencia polimórfica deliberada: el registro de auditoría debe sobrevivir aunque la fila original cambie.
+- `summary` es un texto histórico (qué se vio y se hizo en ese momento): **no es un dato derivado repetido**, porque si el producto cambia de nombre mañana, la anotación de hoy debe seguir diciendo lo que decía.
+
+### Supuestos a confirmar (no están relevados)
+
+- Qué operaciones se auditan (D20-a) y quién puede consultar el registro (D20-g).
+

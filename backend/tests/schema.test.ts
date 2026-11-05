@@ -486,3 +486,37 @@ describe("esquema: pagos y recargos de las fichas", () => {
     expect(payment.amount.toFixed(2)).toBe("1234.50");
   });
 });
+
+describe("esquema: auditoría", () => {
+  async function seedEntry() {
+    const user = await prisma.user.create({ data: { username: "ana", fullName: "Ana", passwordHash: "x" } });
+    const entry = await prisma.auditLog.create({ data: { userId: user.id, action: "SALE_REGISTERED", entityType: "Sale", entityId: 1, summary: "Registró la venta #1" } });
+    return { user, entry };
+  }
+
+  it("el registro solo se agrega: la base rechaza modificar o borrar una fila", async () => {
+    const { entry } = await seedEntry();
+
+    await expect(prisma.auditLog.update({ where: { id: entry.id }, data: { summary: "Otra cosa" } })).rejects.toThrow(/solo agregar/);
+    await expect(prisma.auditLog.delete({ where: { id: entry.id } })).rejects.toThrow(/solo agregar/);
+    await expect(prisma.auditLog.deleteMany({})).rejects.toThrow(/solo agregar/);
+    expect((await prisma.auditLog.findUniqueOrThrow({ where: { id: entry.id } })).summary).toBe("Registró la venta #1");
+  });
+
+  it("acción, tipo y resumen no pueden estar vacíos", async () => {
+    const { user } = await seedEntry();
+    const ok = { userId: user.id, action: "X", entityType: "Y", summary: "Z" };
+
+    await expect(prisma.auditLog.create({ data: { ...ok, action: "  " } })).rejects.toThrow();
+    await expect(prisma.auditLog.create({ data: { ...ok, entityType: "" } })).rejects.toThrow();
+    await expect(prisma.auditLog.create({ data: { ...ok, summary: "   " } })).rejects.toThrow();
+    await expect(prisma.auditLog.create({ data: ok })).resolves.toBeTruthy();
+  });
+
+  it("la entidad es opcional y no se puede borrar un usuario que tiene anotaciones", async () => {
+    const { user } = await seedEntry();
+
+    await expect(prisma.auditLog.create({ data: { userId: user.id, action: "X", entityType: "Y", summary: "Z" } })).resolves.toMatchObject({ entityId: null });
+    await expect(prisma.user.delete({ where: { id: user.id } })).rejects.toThrow();
+  });
+});

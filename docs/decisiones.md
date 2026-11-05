@@ -197,3 +197,17 @@ No hay reglas de negocio confirmadas sobre qué reportes quieren los propietario
 - **g) Stock bajo:** reutiliza el filtro `lowStock` de productos (alerta de stock mínimo, D5).
 - **h) Deuda de clientes (propuesta):** las fichas pendientes de mayor a menor monto **a pagar hoy** (saldo + recargos que ya corresponden). Los totales separan saldo registrado y monto a pagar.
 
+
+## D20 – Auditoría
+
+**Confirmado:** se registra quién realizó cada operación importante. **Pendiente de confirmar con los propietarios:** qué operaciones cuentan como "importantes" y cómo se manejan anulaciones, devoluciones y stock negativo. Lo siguiente son **propuestas de Claude**.
+
+- **a) Qué se audita (propuesta):** todas las operaciones que **cambian datos**: ventas (registro y anulación), movimientos de stock (stock inicial y ajustes), pagos y recargos de cuentas corrientes, cambio del recargo por mora, altas y cambios de clientes (incluye el crédito autorizado) y de productos (incluye el precio), categorías, y el cambio de contraseña. **No** se audita: consultas (GET), reportes, inicio y cierre de sesión (queda como mejora si se quiere saber quién entró y cuándo).
+- **b) Qué se guarda:** quién (usuario de la **sesión**, nunca del cuerpo del pedido), cuándo, una clave de acción (por ejemplo `SALE_ANNULLED`), el tipo y el número de la entidad afectada y un **texto resumen** en español ("Anuló la venta #12. Motivo: …"). No se guardan contraseñas ni datos innecesarios.
+- **c) Solo se agrega:** la base de datos rechaza modificar o borrar una anotación (disparador en PostgreSQL). Tampoco existe un endpoint para hacerlo.
+- **d) Cómo se escribe:** un middleware anota después de que la operación salió bien (código menor a 400) y **antes** de enviar la respuesta. Las operaciones que fallan no se anotan. La tabla de "qué ruta genera qué anotación" está en un solo archivo (`helpers/audit-rules.ts`).
+- **e) Limitación conocida:** la anotación **no está en la misma transacción** que la operación. Si la base falla justo al anotar, la operación queda hecha y el error se escribe en el log del servidor; la respuesta no se convierte en un error para el usuario, porque la operación sí se hizo. Si se quisiera atomicidad total, hay que mover la anotación dentro de cada servicio (cambio más grande, a decidir).
+- **f) Redundancia útil:** ventas, anulaciones, movimientos de stock, pagos, recargos y cambios de parámetros ya guardan su propio usuario y fecha en sus tablas (auditoría por tabla); el registro de auditoría suma una línea de tiempo única y cubre lo que no tenía (productos, clientes, categorías, contraseña).
+- **g) Consulta:** `GET /api/audit` con filtros por usuario, acción, entidad y días (hora de Argentina); más nuevas primero; 100 por defecto, máximo 500. Cualquier usuario con sesión puede consultarla (no hay roles, D4): **a confirmar**.
+- **h) Anulaciones, devoluciones y stock negativo (a confirmar):** hoy una venta no se borra, se anula con motivo y devuelve el stock (D13); un ajuste no puede dejar stock negativo (D12); las devoluciones no existen como operación aparte.
+

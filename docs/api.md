@@ -151,3 +151,16 @@ Requieren sesión (401 si no hay). Son de solo lectura y se calculan al momento 
 
 El stock bajo se obtiene con `GET /products?lowStock=true`.
 
+
+## Auditoría
+
+Requiere sesión (401 si no hay). Solo lectura: el registro lo escribe el sistema y no se puede crear, editar ni borrar por la API (D20).
+
+| Método y ruta | Qué hace | Respuestas |
+|---|---|---|
+| `GET /audit` | Lista las anotaciones, de la más nueva a la más vieja. Filtros opcionales: `userId`, `action`, `entityType`, `from` y `to` (`AAAA-MM-DD`, días de Argentina, inclusivos) y `limit` (de 1 a 500, 100 por defecto) | 200, 400 |
+
+Cada anotación devuelve `id`, `createdAt`, `userId`, `userName`, `action`, `entityType`, `entityId` (puede ser `null`) y `summary`.
+
+Se anotan solo las operaciones que cambian datos y salieron bien: ventas (`SALE_REGISTERED`, `SALE_ANNULLED`), movimientos de stock (`STOCK_MOVEMENT_REGISTERED`), cuentas corrientes (`ACCOUNT_PAYMENT_REGISTERED`, `SURCHARGES_APPLIED`), parámetros (`SETTING_CHANGED`), clientes (`CUSTOMER_CREATED`, `CUSTOMER_UPDATED`), productos (`PRODUCT_CREATED`, `PRODUCT_UPDATED`), categorías (`CATEGORY_CREATED`, `CATEGORY_UPDATED`, `CATEGORY_DELETED`) y el cambio de contraseña (`PASSWORD_CHANGED`). Las consultas, los reportes y el inicio y cierre de sesión no se anotan.
+

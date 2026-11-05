@@ -51,6 +51,7 @@ model User {
   settingChanges  Setting[]
   accountPayments AccountPayment[]
   surcharges      Surcharge[]
+  auditLogs       AuditLog[]
 }
 
 // Sesión abierta de un usuario. Se guarda el hash del código de la cookie, no el código (D9).
@@ -243,4 +244,21 @@ model Surcharge {
 
   @@unique([accountId, monthNumber])
   @@index([accountId])
+}
+
+// Registro de auditoría: quién hizo qué y cuándo (D20). Solo se agrega: la base impide modificar o borrar filas.
+// `action` y `entityType` son claves cortas (por ejemplo SALE_ANNULLED y Sale); `summary` es el texto que se muestra.
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  action     String
+  entityType String
+  entityId   Int?
+  summary    String
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([entityType, entityId])
 }
