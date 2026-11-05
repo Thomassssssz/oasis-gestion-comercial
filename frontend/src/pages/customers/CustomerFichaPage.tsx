@@ -1,46 +1,56 @@
-import { ArrowLeft, Pencil, Printer } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { ArrowLeft, Printer } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import AccountSummary from '@/components/customers/AccountSummary'
-import ArticlesTable from '@/components/customers/ArticlesTable'
-import CustomerForm from '@/components/customers/CustomerForm'
+import AccountActions from '@/components/accounts/AccountActions'
 import RemitoSheet from '@/components/customers/RemitoSheet'
 import { Button } from '@/components/ui/button'
-import { listCustomerAccounts } from '@/services/accounts/account.service'
-import { getCustomer } from '@/services/customers/customer.service'
-import { listCustomerCashSales } from '@/services/sales/sale.service'
+import { listCustomerAccounts, updateAccountRemito } from '@/services/accounts/account.service'
+import { customerData, getCustomer, updateCustomer } from '@/services/customers/customer.service'
+import { getBusinessSettings, updateBusinessSettings } from '@/services/settings/setting.service'
 import type { CreditAccount } from '@/types/account.types'
 import type { Customer } from '@/types/customer.types'
-import type { Sale } from '@/types/sale.types'
+import type { BusinessSettings } from '@/types/setting.types'
 import { describeError } from '@/utils/errors'
-import { peso } from '@/utils/format'
+import {
+  ACCOUNT_KEYS,
+  BUSINESS_KEYS,
+  buildRemito,
+  CUSTOMER_KEYS,
+  isTaxCondition,
+  normalizeValue,
+  serverValues,
+  type FieldKey,
+  type RemitoValues,
+} from '@/utils/remito'
 
-type Loaded = { customer: Customer; accounts: CreditAccount[]; cashSales: Sale[] }
+type Loaded = { customer: Customer; account: CreditAccount | null; business: BusinessSettings }
+type Edits = Partial<Record<FieldKey, string>> // lo escrito en el remito que todavía no se guardó
 
-const day = new Intl.DateTimeFormat('es-AR', { dateStyle: 'short' })
-
-// Ficha de un cliente, con el formato de la ficha formal (el remito): sus datos, los artículos con precio y total,
-// los pagos y el saldo. Se puede imprimir. Reemplaza a la pantalla de Cuentas corrientes (D22).
+// Ficha de un cliente: el remito "X" del comercio, y nada más. Cada dato del remito se toca y se edita;
+// lo cambiado se guarda con la barra "Guardar cambios" (D22, D23). Se puede imprimir.
 export default function CustomerFichaPage() {
   const { id } = useParams()
   const customerId = Number(id)
   const [data, setData] = useState<Loaded | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null) // confirmación de un pago o de recargos aplicados
-  const [editing, setEditing] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null) // confirmación de un guardado, un pago o recargos aplicados
+  const [edits, setEdits] = useState<Edits>({})
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [showPay, setShowPay] = useState(false)
   const [reload, setReload] = useState(0)
-  // Fecha que lleva el remito (la de hoy, al abrir la ficha).
-  const [today] = useState(() => {
+  // La fecha del remito es la de hoy y se puede cambiar, pero no se guarda: la hoja de papel la lleva a mano.
+  const [date, setDate] = useState(() => {
     const now = new Date()
     return { day: String(now.getDate()).padStart(2, '0'), month: String(now.getMonth() + 1).padStart(2, '0'), year: String(now.getFullYear()) }
   })
 
   useEffect(() => {
     let ignore = false
-    Promise.all([getCustomer(customerId), listCustomerAccounts(customerId), listCustomerCashSales(customerId)])
-      .then(([customer, accounts, cashSales]) => {
+    Promise.all([getCustomer(customerId), listCustomerAccounts(customerId), getBusinessSettings()])
+      .then(([customer, accounts, business]) => {
         if (!ignore) {
-          setData({ customer, accounts, cashSales })
+          setData({ customer, account: accounts.find((a) => a.status === 'OPEN') ?? null, business })
           setError(null)
         }
       })
@@ -51,6 +61,22 @@ export default function CustomerFichaPage() {
       ignore = true
     }
   }, [customerId, reload])
+
+  const saved = useMemo(() => (data ? serverValues(data.customer, data.account, data.business) : null), [data])
+  const values = useMemo(() => (saved ? ({ ...saved, ...edits } as RemitoValues) : null), [saved, edits])
+  // Un campo está "cambiado" si lo escrito es distinto de lo guardado (sin contar espacios sobrantes ni guiones del CUIT).
+  // Los números del remito pertenecen a la ficha abierta: si ya no hay (se canceló con un pago), lo escrito ahí no se puede guardar y no cuenta.
+  const hasAccount = data?.account != null
+  const changed = useMemo(() => {
+    const keys = new Set<FieldKey>()
+    if (saved) {
+      for (const key of Object.keys(edits) as FieldKey[]) {
+        if (!hasAccount && (ACCOUNT_KEYS as readonly FieldKey[]).includes(key)) continue
+        if (normalizeValue(key, edits[key] ?? '') !== normalizeValue(key, saved[key])) keys.add(key)
+      }
+    }
+    return keys
+  }, [saved, edits, hasAccount])
 
   const back = (
     <Link to="/clientes" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:underline print:hidden">
@@ -69,135 +95,157 @@ export default function CustomerFichaPage() {
       </section>
     )
   }
-  if (!data) return <p className="text-muted-foreground">Cargando…</p>
+  if (!data || !values) return <p className="text-muted-foreground">Cargando…</p>
 
-  const { customer, accounts, cashSales } = data
-  const open = accounts.find((account) => account.status === 'OPEN')
-  const cancelled = accounts.filter((account) => account.status === 'CANCELLED')
-  const annulled = open?.sales.filter((sale) => sale.status === 'ANNULLED') ?? []
+  const { customer, account, business } = data
+  const remito = buildRemito(account)
+
+  function setField(key: FieldKey, value: string) {
+    setNotice(null)
+    setEdits((previous) => ({ ...previous, [key]: value }))
+  }
+
+  const anyChanged = (keys: readonly FieldKey[]) => keys.some((key) => changed.has(key))
+  const clean = (key: FieldKey) => normalizeValue(key, values![key])
+
+  // Guarda cada grupo de datos que cambió en su lugar: el cliente, la ficha y el comercio. Si uno falla, los demás igual se guardan
+  // y el error dice cuál no se pudo; lo que no se guardó sigue escrito en el remito para corregirlo.
+  async function save() {
+    setSaving(true)
+    setSaveError(null)
+    setNotice(null)
+    const done: FieldKey[] = []
+    const failures: string[] = []
+
+    if (anyChanged(CUSTOMER_KEYS)) {
+      try {
+        await updateCustomer(
+          customer.id,
+          customerData(customer, {
+            name: clean('customerName'),
+            address: clean('address'),
+            locality: clean('locality'),
+            taxCondition: isTaxCondition(values!.taxCondition) ? values!.taxCondition : null,
+            cuit: clean('cuit'),
+          }),
+        )
+        done.push(...CUSTOMER_KEYS)
+      } catch (e) {
+        failures.push(`Datos del cliente: ${describeError(e)}`)
+      }
+    }
+    if (account && anyChanged(ACCOUNT_KEYS)) {
+      try {
+        await updateAccountRemito(account.id, { number: clean('number'), remitoNumber: clean('remitoNumber') })
+        done.push(...ACCOUNT_KEYS)
+      } catch (e) {
+        failures.push(`Números del remito: ${describeError(e)}`)
+      }
+    }
+    if (anyChanged(BUSINESS_KEYS)) {
+      try {
+        await updateBusinessSettings({
+          name: clean('bizName'),
+          owner: clean('bizOwner'),
+          address: clean('bizAddress'),
+          taxCondition: isTaxCondition(values!.bizTaxCondition) ? values!.bizTaxCondition : null,
+          cuit: clean('bizCuit'),
+          grossIncome: clean('bizGrossIncome'),
+          activityStart: clean('bizActivityStart'),
+        })
+        done.push(...BUSINESS_KEYS)
+      } catch (e) {
+        failures.push(`Datos del comercio: ${describeError(e)}`)
+      }
+    }
+
+    setEdits((previous) => Object.fromEntries(Object.entries(previous).filter(([key]) => !done.includes(key as FieldKey))))
+    if (failures.length > 0) setSaveError(failures.join(' · '))
+    else setNotice('Cambios guardados')
+    if (done.length > 0) setReload((n) => n + 1)
+    setSaving(false)
+  }
+
+  function discard() {
+    setEdits({})
+    setSaveError(null)
+  }
 
   return (
-    <section className="grid gap-5">
+    <section className="grid gap-4">
       <div>
         {back}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xl font-semibold print:hidden">{customer.name}</h2>
-          <div className="flex gap-2 print:hidden">
-            <Button variant="outline" onClick={() => setEditing(true)} disabled={editing}>
-              <Pencil />
-              Editar datos
-            </Button>
-            <Button onClick={() => window.print()}>
-              <Printer />
-              Imprimir
-            </Button>
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
+          <p className="text-sm text-muted-foreground">Tocá cualquier dato del remito para cambiarlo. Los artículos salen de las ventas.</p>
+          <Button onClick={() => window.print()}>
+            <Printer />
+            Imprimir
+          </Button>
         </div>
       </div>
 
-      {editing && (
-        <div className="print:hidden">
-          <CustomerForm
-            customer={customer}
-            onSaved={() => {
-              setEditing(false)
-              setReload((n) => n + 1)
-            }}
-            onCancel={() => setEditing(false)}
-          />
+      {changed.size > 0 && (
+        <div
+          role="group"
+          aria-label="Cambios sin guardar"
+          className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm print:hidden">
+          <span>
+            Tenés {changed.size} {changed.size === 1 ? 'cambio' : 'cambios'} sin guardar
+          </span>
+          <span className="flex gap-2">
+            <Button size="sm" onClick={() => void save()} disabled={saving}>
+              Guardar cambios
+            </Button>
+            <Button size="sm" variant="ghost" onClick={discard} disabled={saving}>
+              Descartar
+            </Button>
+          </span>
         </div>
       )}
 
+      {saveError && (
+        <p role="alert" className="rounded-md bg-red-100 px-3 py-2 text-sm text-red-800 print:hidden">
+          {saveError}
+        </p>
+      )}
       {notice && (
         <p role="status" className="rounded-md bg-emerald-100 px-3 py-2 text-sm text-emerald-800 print:hidden">
           {notice}
         </p>
       )}
 
-      {/* Datos que el remito no tiene: solo en pantalla. */}
-      <dl className="grid gap-x-6 gap-y-1 rounded-md border border-border bg-white p-4 text-sm sm:grid-cols-2 print:hidden">
-        <Field label="DNI" value={customer.dni} />
-        <Field label="Teléfono" value={customer.phone} />
-        <Field label="Crédito" value={customer.creditAuthorized ? 'Autorizado a comprar a cuenta corriente' : 'Solo contado'} />
-        <Field label="Estado" value={customer.active ? 'Activo' : 'De baja'} />
-        {customer.notes && <Field label="Observaciones" value={customer.notes} />}
-      </dl>
-
-      {!open && (
-        <p className="text-sm text-muted-foreground print:hidden">
-          {customer.creditAuthorized
-            ? 'No tiene una ficha abierta. Se abre con la primera venta a crédito.'
-            : 'No tiene una ficha abierta. El cliente no está autorizado a comprar a crédito.'}
-        </p>
-      )}
-
-      {/* La ficha formal: el remito "X" con los artículos de la cuenta corriente abierta. */}
       <RemitoSheet
-        customerName={customer.name}
-        address={customer.address}
-        sales={open?.sales ?? []}
-        condition={open ? 'CURRENT_ACCOUNT' : null}
-        date={today}
+        values={values}
+        changed={changed}
+        onChange={setField}
+        accountFields={account !== null}
+        condition={account ? 'CURRENT_ACCOUNT' : null}
+        date={date}
+        onDateChange={(part, value) => setDate((previous) => ({ ...previous, [part]: value }))}
+        remito={remito}
+        dueDate={account?.dueDate ?? null}
+        overdueMonths={account?.overdue ? account.monthsOverdue : null}
+        onPayClick={account ? () => setShowPay((open) => !open) : undefined}
       />
 
-      {annulled.length > 0 && (
-        <p className="text-sm text-muted-foreground print:hidden">
-          Ventas anuladas (no figuran en el remito):{' '}
-          {annulled.map((sale) => `#${sale.id} del ${day.format(new Date(sale.createdAt))} por ${peso.format(Number(sale.total))}`).join(' · ')}
-        </p>
-      )}
-
-      {open && (
-        <section>
-          <h3 className="mb-2 text-lg font-semibold">Estado de la cuenta</h3>
-          <AccountSummary
-            account={open}
+      {/* Se abre al tocar el pie del remito: registrar un pago y aplicar los recargos que ya corresponden (D18). */}
+      {account && showPay && (
+        <div className="mx-auto w-full max-w-3xl print:hidden">
+          <AccountActions
+            account={account}
             onChanged={(message) => {
               setNotice(message)
+              setShowPay(false)
               setReload((n) => n + 1)
             }}
           />
-        </section>
+        </div>
       )}
 
-      {cashSales.length > 0 && (
-        <details className="rounded-md border border-border bg-white p-3 print:hidden">
-          <summary className="cursor-pointer text-sm font-semibold">Compras de contado ({cashSales.length})</summary>
-          <div className="mt-3">
-            <ArticlesTable sales={cashSales} totalLabel="Total de las compras de contado" />
-          </div>
-        </details>
-      )}
-
-      {cancelled.length > 0 && (
-        <section className="print:hidden">
-          <h3 className="mb-2 text-lg font-semibold">Historial de fichas canceladas</h3>
-          <div className="grid gap-2">
-            {cancelled.map((account) => (
-              <details key={account.id} className="rounded-md border border-border bg-white p-3">
-                <summary className="cursor-pointer text-sm font-semibold">
-                  Ficha del {day.format(new Date(account.openedAt))} al {day.format(new Date(account.closedAt ?? account.dueDate))}
-                </summary>
-                <div className="mt-3">
-                  <ArticlesTable sales={account.sales} totalLabel="Total de las ventas" />
-                  <div className="mt-3">
-                    <AccountSummary account={account} />
-                  </div>
-                </div>
-              </details>
-            ))}
-          </div>
-        </section>
+      {/* La empresa todavía no cargó sus datos: se avisa en pantalla para que se complete el encabezado. */}
+      {!business.name && (
+        <p className="text-center text-xs text-muted-foreground print:hidden">El encabezado del comercio está vacío: tocalo para completarlo (se guarda una sola vez).</p>
       )}
     </section>
-  )
-}
-
-function Field({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="flex gap-2">
-      <dt className="text-muted-foreground print:text-black">{label}:</dt>
-      <dd className="font-medium">{value ?? '—'}</dd>
-    </div>
   )
 }

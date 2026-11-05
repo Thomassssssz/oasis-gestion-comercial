@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { listAccounts } from '@/services/accounts/account.service'
-import { listCustomers, updateCustomer } from '@/services/customers/customer.service'
+import { customerData, listCustomers, updateCustomer } from '@/services/customers/customer.service'
 import type { CreditAccount } from '@/types/account.types'
 import type { Customer, CustomerFilters } from '@/types/customer.types'
 import { describeError } from '@/utils/errors'
@@ -50,15 +50,7 @@ export default function CustomersPage() {
 
   async function toggleActive(customer: Customer) {
     try {
-      await updateCustomer(customer.id, {
-        name: customer.name,
-        phone: customer.phone ?? '',
-        dni: customer.dni ?? '',
-        address: customer.address ?? '',
-        notes: customer.notes ?? '',
-        creditAuthorized: customer.creditAuthorized,
-        active: !customer.active,
-      })
+      await updateCustomer(customer.id, customerData(customer, { active: !customer.active }))
       setReload((n) => n + 1)
     } catch (e) {
       setError(describeError(e))

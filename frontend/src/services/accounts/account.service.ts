@@ -13,3 +13,7 @@ export const payAccount = (id: number, input: PaymentInput) =>
 
 // Registra los recargos por mora que ya corresponden (D18-f).
 export const applySurcharges = (id: number) => apiRequest<CreditAccount>(`/accounts/${id}/surcharges`, { method: 'POST' })
+
+// Guarda los dos números que se escriben a mano en el remito. No toca el saldo ni el vencimiento (D23).
+export const updateAccountRemito = (id: number, data: { number: string; remitoNumber: string }) =>
+  apiRequest<CreditAccount>(`/accounts/${id}/remito`, { method: 'PUT', body: data })

@@ -116,12 +116,13 @@ describe('rutas y sesión', () => {
     mockApi({
       'GET /api/auth/me': () => ana,
       ...screens,
-      'GET /api/customers/7': () => ({ id: 7, name: 'María Gómez', phone: null, dni: null, address: null, notes: null, creditAuthorized: false, active: true, createdAt: '2026-03-01T12:00:00.000Z', updatedAt: '2026-03-01T12:00:00.000Z' }),
-      'GET /api/sales': () => [],
+      'GET /api/customers/7': () => ({ id: 7, name: 'María Gómez', phone: null, dni: null, address: null, locality: null, taxCondition: null, cuit: null, notes: null, creditAuthorized: false, active: true, createdAt: '2026-03-01T12:00:00.000Z', updatedAt: '2026-03-01T12:00:00.000Z' }),
+      'GET /api/accounts': () => [],
+      'GET /api/settings/business': () => ({ name: null, owner: null, address: null, taxCondition: null, cuit: null, grossIncome: null, activityStart: null, updatedAt: '2026-03-01T12:00:00.000Z', updatedBy: null }),
     })
     renderAt('/clientes/7')
 
-    expect(await screen.findByRole('heading', { name: 'María Gómez' })).toBeInTheDocument()
+    expect(await screen.findByLabelText('Señor/es')).toHaveValue('María Gómez')
     expect(screen.getByRole('link', { name: 'Clientes' })).toHaveAttribute('aria-current', 'page') // el menú sigue marcando Clientes
   })
 

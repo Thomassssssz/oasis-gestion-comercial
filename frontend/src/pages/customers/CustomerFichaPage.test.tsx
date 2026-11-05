@@ -2,7 +2,7 @@ import { render as baseRender, screen, waitFor, within } from '@testing-library/
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { mockApi } from '@/test/mock-api'
+import { mockApi, type MockCall } from '@/test/mock-api'
 import CustomerFichaPage from './CustomerFichaPage'
 
 const maria = {
@@ -11,11 +11,36 @@ const maria = {
   phone: '370 4123456',
   dni: '30123456',
   address: 'España 123',
+  locality: null as string | null,
+  taxCondition: null as string | null,
+  cuit: null as string | null,
   notes: 'Paga los viernes',
   creditAuthorized: true,
   active: true,
   createdAt: '2026-03-01T12:00:00.000Z',
   updatedAt: '2026-03-01T12:00:00.000Z',
+}
+
+const comercioVacio = {
+  name: null,
+  owner: null,
+  address: null,
+  taxCondition: null,
+  cuit: null,
+  grossIncome: null,
+  activityStart: null,
+  updatedAt: '2026-03-01T12:00:00.000Z',
+  updatedBy: null,
+}
+const comercio = {
+  ...comercioVacio,
+  name: 'Comercio de prueba',
+  owner: 'Titular de prueba',
+  address: 'Calle 1',
+  taxCondition: 'EXEMPT',
+  cuit: '20111111111',
+  grossIncome: '123-456',
+  activityStart: '03/2011',
 }
 
 const lineas = [
@@ -30,6 +55,8 @@ const ficha = (id: number, extra: object = {}) => ({
   openedAt: '2026-03-10T15:00:00.000Z',
   dueDate: '2026-04-10T15:00:00.000Z',
   closedAt: null,
+  number: null,
+  remitoNumber: null,
   balance: '450.00',
   pendingSurchargesTotal: '0.00',
   payable: '450.00',
@@ -77,66 +104,65 @@ const render = (path = '/clientes/5') =>
     </MemoryRouter>,
   )
 
-const api = (accounts: object[], extra: Record<string, () => unknown> = {}, cashSales: object[] = []) =>
+const api = (accounts: object[], extra: Record<string, (call: MockCall) => unknown> = {}, customer: object = maria, business: object = comercio) =>
   mockApi({
-    'GET /api/customers/5': () => maria,
+    'GET /api/customers/5': () => customer,
     'GET /api/accounts': () => accounts,
-    'GET /api/sales': () => cashSales,
+    'GET /api/settings/business': () => business,
     ...extra,
   })
 
+const puts = (calls: MockCall[], path: string) => calls.filter((c) => c.method === 'PUT' && c.path === path)
+const barra = () => screen.queryByRole('group', { name: 'Cambios sin guardar' })
+const escribir = async (user: ReturnType<typeof userEvent.setup>, label: string, texto: string) => {
+  const campo = screen.getByLabelText(label)
+  await user.clear(campo)
+  if (texto) await user.type(campo, texto)
+}
+
 afterEach(() => vi.restoreAllMocks())
 
-describe('CustomerFichaPage: datos del cliente', () => {
-  it('muestra los datos del cliente: en el remito su nombre y domicilio, y aparte DNI, teléfono, crédito y observaciones', async () => {
-    api([])
+describe('CustomerFichaPage: solo el remito', () => {
+  it('muestra el remito con el nombre y el domicilio del cliente y el encabezado del comercio', async () => {
+    api([ficha(3)])
     render()
 
-    expect(await screen.findByRole('heading', { name: 'María Gómez' })).toBeInTheDocument()
-    const remito = screen.getByTestId('remito')
-    expect(within(remito).getByText('María Gómez')).toBeInTheDocument()
-    expect(within(remito).getByText('España 123')).toBeInTheDocument()
-    expect(screen.getByText('30123456')).toBeInTheDocument()
-    expect(screen.getByText('370 4123456')).toBeInTheDocument()
-    expect(screen.getByText('Autorizado a comprar a cuenta corriente')).toBeInTheDocument()
-    expect(screen.getByText('Paga los viernes')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Señor/es')).toHaveValue('María Gómez')
+    expect(screen.getByLabelText('Domicilio')).toHaveValue('España 123')
+    expect(screen.getByLabelText('Nombre del comercio')).toHaveValue('Comercio de prueba')
+    expect(screen.getByLabelText('Titular')).toHaveValue('Titular de prueba')
+    expect(screen.getByLabelText('C.U.I.T. del comercio')).toHaveValue('20-11111111-1')
+    expect(screen.getByLabelText('Inicio de actividades')).toHaveValue('03/2011')
+    expect(screen.getByTestId('remito')).toBeInTheDocument()
   })
 
-  it('un cliente sin crédito figura como "Solo contado", sin observaciones, y avisa que no puede tener ficha', async () => {
-    mockApi({
-      'GET /api/customers/5': () => ({ ...maria, creditAuthorized: false, dni: null, address: null, phone: null, notes: null }),
-      'GET /api/accounts': () => [],
-      'GET /api/sales': () => [],
-    })
+  it('no muestra nada más que el remito: ni formulario, ni ficha de datos, ni estado de la cuenta, ni historiales', async () => {
+    api([ficha(3), cancelada()])
     render()
+    await screen.findByLabelText('Señor/es')
 
-    await screen.findByRole('heading', { name: 'María Gómez' })
-    expect(screen.getByText('Solo contado')).toBeInTheDocument()
-    expect(screen.getAllByText('—')).toHaveLength(2) // DNI y teléfono
-    expect(screen.queryByText('Observaciones:')).not.toBeInTheDocument()
-    expect(screen.getByText(/no está autorizado a comprar a crédito/)).toBeInTheDocument()
+    for (const texto of [/Editar cliente/, /Editar datos/, 'DNI:', 'Teléfono:', 'Crédito:', 'Observaciones:', 'Estado de la cuenta', /Compras de contado/, /Historial de fichas canceladas/, 'Al día', 'Pagos']) {
+      expect(screen.queryByText(texto)).not.toBeInTheDocument()
+    }
+    expect(screen.queryByText('30123456')).not.toBeInTheDocument()
+    expect(screen.queryByText('Paga los viernes')).not.toBeInTheDocument()
   })
 
-  it('pide el cliente, sus fichas y sus compras de contado confirmadas', async () => {
-    const { calls } = api([])
+  it('pide el cliente, sus fichas y los datos del comercio (ya no pide compras de contado)', async () => {
+    const { calls } = api([ficha(3)])
     render()
+    await screen.findByLabelText('Señor/es')
 
-    await screen.findByRole('heading', { name: 'María Gómez' })
+    expect(calls.map((c) => `${c.method} ${c.path}`).sort()).toEqual(['GET /api/accounts', 'GET /api/customers/5', 'GET /api/settings/business'])
     expect(calls.find((c) => c.path === '/api/accounts')!.query.get('customerId')).toBe('5')
-    const ventas = calls.find((c) => c.path === '/api/sales')!.query
-    expect([ventas.get('customerId'), ventas.get('onCredit'), ventas.get('status')]).toEqual(['5', 'false', 'CONFIRMED'])
   })
 
   it('un cliente que no existe muestra el mensaje de la API y el enlace para volver', async () => {
-    mockApi({
-      'GET /api/customers/99': () => Response.json({ error: 'El cliente no existe' }, { status: 404 }),
-      'GET /api/accounts': () => [],
-      'GET /api/sales': () => [],
-    })
-    render('/clientes/99')
+    api([], { 'GET /api/customers/5': () => Response.json({ error: 'El cliente no existe' }, { status: 404 }) })
+    render()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('El cliente no existe')
-    expect(screen.getByRole('link', { name: /Volver a Clientes/ })).toHaveAttribute('href', '/clientes')
+    expect(screen.getByRole('link', { name: /Volver a Clientes/ })).toBeInTheDocument()
   })
 
   it('"Volver a Clientes" lleva a la lista', async () => {
@@ -159,55 +185,9 @@ describe('CustomerFichaPage: datos del cliente', () => {
 
     expect(print).toHaveBeenCalledTimes(1)
   })
-
-  it('"Editar datos" abre el formulario con los datos y al guardar recarga la ficha', async () => {
-    let nombre = maria.name
-    const { calls } = mockApi({
-      'GET /api/customers/5': () => ({ ...maria, name: nombre }),
-      'GET /api/accounts': () => [],
-      'GET /api/sales': () => [],
-      'PUT /api/customers/5': ({ body }) => {
-        nombre = (body as { name: string }).name
-        return { ...maria, name: nombre }
-      },
-    })
-    const user = userEvent.setup()
-    render()
-
-    await user.click(await screen.findByRole('button', { name: 'Editar datos' }))
-    expect(screen.getByRole('button', { name: 'Editar datos' })).toBeDisabled()
-    const campo = screen.getByLabelText('Nombre')
-    expect(campo).toHaveValue('María Gómez')
-    await user.clear(campo)
-    await user.type(campo, 'María Gómez de Pérez')
-    await user.click(screen.getByRole('button', { name: /Guardar/ }))
-
-    expect(await screen.findByRole('heading', { name: 'María Gómez de Pérez' })).toBeInTheDocument()
-    expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument() // el formulario se cierra
-    expect(calls.filter((c) => c.method === 'GET' && c.path === '/api/customers/5')).toHaveLength(2)
-  })
-
-  it('"Cancelar" cierra el formulario de edición', async () => {
-    api([])
-    const user = userEvent.setup()
-    render()
-
-    await user.click(await screen.findByRole('button', { name: 'Editar datos' }))
-    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
-
-    expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Editar datos' })).toBeEnabled()
-  })
 })
 
-describe('CustomerFichaPage: ficha de cuenta corriente', () => {
-  it('sin ficha abierta lo dice', async () => {
-    api([])
-    render()
-
-    expect(await screen.findByText(/No tiene una ficha abierta. Se abre con la primera venta a crédito./)).toBeInTheDocument()
-  })
-
+describe('CustomerFichaPage: renglones y totales', () => {
   it('el remito tilda "Cuenta Corriente" solo si hay una ficha abierta', async () => {
     api([ficha(3)])
     const { unmount } = render()
@@ -219,226 +199,255 @@ describe('CustomerFichaPage: ficha de cuenta corriente', () => {
     expect(await screen.findByRole('img', { name: 'Cuenta Corriente: sin tildar' })).toBeInTheDocument()
   })
 
-  it('sin ficha abierta igual muestra el remito con la grilla vacía, listo para imprimir en blanco', async () => {
-    api([])
-    render()
-
-    const remito = await screen.findByTestId('remito')
-    expect(within(remito).getAllByRole('row', { hidden: true })).toHaveLength(13)
-    expect(screen.getByTestId('remito-total')).toHaveTextContent(/\$\s?0,00/)
-  })
-
   it('muestra los artículos con cantidad, detalle, precio unitario y total de cada línea', async () => {
     api([ficha(3)])
     render()
 
     const fila = (await screen.findByText('Cuaderno rayado')).closest('tr')!
-    expect(within(fila).getByText('3')).toBeInTheDocument()
-    expect(fila).toHaveTextContent(/\$\s?100,00/)
-    expect(fila).toHaveTextContent(/\$\s?300,00/)
-    const otra = screen.getByText('Lapicera azul').closest('tr')!
-    expect(otra).toHaveTextContent(/\$\s?25,00/)
-    expect(otra).toHaveTextContent(/\$\s?50,00/)
+    const celdas = within(fila).getAllByRole('cell')
+    expect(celdas[0]).toHaveTextContent('3')
+    expect(celdas[2]).toHaveTextContent(/\$\s?100,00/)
+    expect(celdas[3]).toHaveTextContent(/\$\s?300,00/)
+    expect(screen.getByText('Lapicera azul')).toBeInTheDocument()
+    expect(screen.getByText('Carpeta')).toBeInTheDocument()
   })
 
   it('el descuento va en su propia línea y el TOTAL del remito lo descuenta', async () => {
     api([ficha(3)])
     render()
 
-    const descuento = (await screen.findByText('Descuento')).closest('tr')!
-    expect(descuento).toHaveTextContent(/−\s*\$\s?10,00/)
-    expect(screen.getByTestId('remito-total')).toHaveTextContent(/\$\s?450,00/) // 350 + 100
+    expect((await screen.findByText('Descuento')).closest('tr')).toHaveTextContent(/−\s*\$\s?10,00/)
+    expect(screen.getByTestId('remito-total')).toHaveTextContent(/\$\s?450,00/) // 350 + (110 − 10)
   })
 
-  it('una venta anulada no figura en el remito ni suma al total, pero se avisa aparte', async () => {
+  it('una venta anulada no figura en el remito ni suma al total, y no hay aviso aparte', async () => {
+    const anulada = { id: 7, status: 'ANNULLED', createdAt: '2026-03-15T15:00:00.000Z', note: null, discount: '0.00', total: '999.00', items: [{ productName: 'Anulado', quantity: 1, unitPrice: '999.00', subtotal: '999.00' }] }
+    api([ficha(3, { sales: [...ficha(3).sales, anulada] })])
+    render()
+
+    await screen.findByText('Cuaderno rayado')
+    expect(screen.queryByText('Anulado')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Ventas anuladas/)).not.toBeInTheDocument()
+    expect(screen.getByTestId('remito-total')).toHaveTextContent(/\$\s?450,00/)
+  })
+
+  it('los pagos y los recargos registrados son renglones del remito, y el pie dice TOTAL, PAGADO y SALDO', async () => {
     api([
       ficha(3, {
-        sales: [
-          { id: 1, status: 'CONFIRMED', createdAt: '2026-03-10T15:00:00.000Z', note: null, discount: '0.00', total: '350.00', items: lineas },
-          { id: 2, status: 'ANNULLED', createdAt: '2026-03-12T15:00:00.000Z', note: null, discount: '0.00', total: '110.00', items: [{ productName: 'Carpeta', quantity: 1, unitPrice: '110.00', subtotal: '110.00' }] },
-        ],
+        balance: '420.00',
+        surcharges: [{ monthNumber: 1, base: '450.00', percent: '5.00', amount: '22.50', chargedOn: '2026-05-10T15:00:00.000Z', registeredAt: '2026-05-10T15:00:00.000Z' }],
+        payments: [{ id: 1, amount: '52.50', paymentMethod: 'CASH', note: null, createdAt: '2026-05-12T15:00:00.000Z', userName: 'Ana' }],
       }),
     ])
     render()
 
-    await screen.findByText('Cuaderno rayado')
-    expect(within(screen.getByTestId('remito')).queryByText('Carpeta')).not.toBeInTheDocument()
-    expect(screen.getByTestId('remito-total')).toHaveTextContent(/\$\s?350,00/)
-    expect(screen.getByText(/Ventas anuladas \(no figuran en el remito\)/)).toHaveTextContent(/#2 del 12\/3\/26 por \$\s?110,00/)
+    expect((await screen.findByText(/Recargo por mora \(mes 1 de atraso, 5%\)/)).closest('tr')).toHaveTextContent(/\$\s?22,50/)
+    expect(screen.getByText(/^Pago .* · Efectivo$/).closest('tr')).toHaveTextContent(/−\s*\$\s?52,50/)
+    expect(screen.getByTestId('remito-total')).toHaveTextContent(/\$\s?472,50/)
+    expect(screen.getByTestId('remito-paid')).toHaveTextContent(/\$\s?52,50/)
+    expect(screen.getByTestId('remito-balance')).toHaveTextContent(/\$\s?420,00/)
   })
 
-  it('sin ventas anuladas no muestra ese aviso', async () => {
-    api([ficha(3)])
-    render()
-
-    await screen.findByText('Cuaderno rayado')
-    expect(screen.queryByText(/Ventas anuladas/)).not.toBeInTheDocument()
-  })
-
-  it('muestra desde cuándo, el vencimiento y "Al día"', async () => {
-    api([ficha(3)])
-    render()
-
-    expect(await screen.findByText('Al día')).toBeInTheDocument()
-    expect(screen.getByText(/Desde/)).toHaveTextContent('10/3/26')
-    expect(screen.getByText(/Vence/)).toHaveTextContent('10/4/26')
-  })
-
-  it('marca la ficha vencida y cuenta los meses de atraso', async () => {
-    api([vencida({ monthsOverdue: 2 })])
-    render()
-
-    expect(await screen.findByText('Vencida (2 meses)')).toBeInTheDocument()
-  })
-
-  it('con un mes de atraso dice "1 mes" y sin un mes completo dice solo "Vencida"', async () => {
-    api([vencida({ monthsOverdue: 1 })])
-    render()
-    expect(await screen.findByText('Vencida (1 mes)')).toBeInTheDocument()
-  })
-
-  it('sin un mes completo de atraso dice solo "Vencida"', async () => {
-    api([vencida({ monthsOverdue: 0 })])
-    render()
-
-    expect(await screen.findByText('Vencida')).toBeInTheDocument()
-  })
-
-  it('muestra el saldo, los recargos que ya corresponden y lo que hay que pagar hoy', async () => {
+  it('muestra el vencimiento, y "VENCIDA" con los recargos que ya corresponden y lo que hay que pagar hoy', async () => {
     api([vencida()])
     render()
 
-    const saldo = (await screen.findByText('Saldo')).closest('dl')!
-    expect(saldo).toHaveTextContent(/Saldo\s*\$\s?1\.000,00/)
-    expect(saldo).toHaveTextContent(/Recargos que ya corresponden\s*\+\s*\$\s?50,00/)
-    expect(saldo).toHaveTextContent(/A pagar hoy\s*\$\s?1\.050,00/)
+    expect(await screen.findByTestId('remito-due')).toHaveTextContent(/Vence 10\/4\/26.*VENCIDA \(1 mes\)/)
+    expect(screen.getByTestId('remito-pending')).toHaveTextContent(/\$\s?50,00/)
+    expect(screen.getByTestId('remito-payable')).toHaveTextContent(/\$\s?1\.050,00/)
   })
 
-  it('sin recargos pendientes no hay línea de recargos en el resumen', async () => {
+  it('una ficha al día no dice VENCIDA', async () => {
     api([ficha(3)])
     render()
 
-    const saldo = (await screen.findByText('Saldo')).closest('dl')!
-    expect(saldo).not.toHaveTextContent('Recargos que ya corresponden')
-    expect(saldo).toHaveTextContent(/A pagar hoy\s*\$\s?450,00/)
+    expect(await screen.findByTestId('remito-due')).not.toHaveTextContent('VENCIDA')
   })
 
-  it('muestra los pagos y los recargos registrados con su base y porcentaje', async () => {
-    api([
-      ficha(3, {
-        payments: [{ id: 7, amount: '100.00', paymentMethod: 'TRANSFER', note: 'Seña', createdAt: '2026-03-15T15:00:00.000Z', userName: 'Ana Propietaria' }],
-        surcharges: [{ monthNumber: 1, base: '450.00', percent: '5.00', amount: '22.50', chargedOn: '2026-05-10T15:00:00.000Z', registeredAt: '2026-05-11T15:00:00.000Z' }],
-      }),
-    ])
+  it('sin ficha abierta el remito queda con la grilla vacía y sin vencimiento; las canceladas no se muestran', async () => {
+    api([cancelada()])
     render()
 
-    const pago = await screen.findByText(/Transferencia/, { selector: 'li' })
-    expect(pago).toHaveTextContent(/\$\s?100,00/)
-    expect(pago).toHaveTextContent('Ana Propietaria')
-    expect(pago).toHaveTextContent('Seña')
-    const recargo = screen.getByText(/Mes 1 de atraso/).closest('li')!
-    expect(recargo).toHaveTextContent(/\$\s?22,50 = 5% de \$\s?450,00/)
-  })
-
-  it('sin pagos dice que todavía no hay y sin recargos registrados no muestra esa sección', async () => {
-    api([ficha(3)])
-    render()
-
-    expect(await screen.findByText('Todavía no hay pagos.')).toBeInTheDocument()
-    expect(screen.queryByText('Recargos por mora registrados')).not.toBeInTheDocument()
+    await screen.findByLabelText('Señor/es')
+    expect(screen.queryByText('Cuaderno rayado')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('row', { hidden: true })).toHaveLength(1 + 12)
+    expect(screen.queryByTestId('remito-due')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Número de ficha')).toBeDisabled()
   })
 })
 
-describe('CustomerFichaPage: pagos y recargos', () => {
-  it('muestra los recargos pendientes y los aplica con el botón, avisando y recargando', async () => {
-    let aplicado = false
-    const { calls } = mockApi({
-      'GET /api/customers/5': () => maria,
-      'GET /api/accounts': () => [aplicado ? ficha(3, { balance: '1050.00', payable: '1050.00', overdue: true }) : vencida()],
-      'GET /api/sales': () => [],
-      'POST /api/accounts/3/surcharges': () => {
-        aplicado = true
-        return ficha(3)
-      },
-    })
-    const user = userEvent.setup()
-    render()
-
-    expect(await screen.findByText('Recargos que ya corresponden (todavía sin registrar)')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Aplicar recargos' }))
-
-    expect(await screen.findByRole('status')).toHaveTextContent('Recargos registrados')
-    expect(calls.some((c) => c.method === 'POST' && c.path === '/api/accounts/3/surcharges')).toBe(true)
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Aplicar recargos' })).not.toBeInTheDocument())
-  })
-
-  it('sin recargos pendientes no ofrece "Aplicar recargos"', async () => {
+describe('CustomerFichaPage: editar y guardar', () => {
+  it('al principio no hay barra de cambios', async () => {
     api([ficha(3)])
     render()
+    await screen.findByLabelText('Señor/es')
 
-    await screen.findByText('Al día')
-    expect(screen.queryByRole('button', { name: 'Aplicar recargos' })).not.toBeInTheDocument()
+    expect(barra()).not.toBeInTheDocument()
   })
 
-  it('registra un pago: manda importe con punto, medio de pago y nota; avisa y recarga', async () => {
-    const { calls } = api([ficha(3)], { 'POST /api/accounts/3/payments': () => ficha(3) })
+  it('al cambiar un dato aparece la barra con la cantidad de cambios y el dato se resalta', async () => {
+    api([ficha(3)])
     const user = userEvent.setup()
     render()
-    await screen.findByText('Al día')
+    await screen.findByLabelText('Señor/es')
 
-    await user.type(screen.getByLabelText('Importe'), '150,5')
-    await user.selectOptions(screen.getByLabelText('Medio de pago'), 'Tarjeta')
-    await user.type(screen.getByLabelText('Nota (opcional)'), '  Seña  ')
-    await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
+    await user.type(screen.getByLabelText('Localidad'), 'Formosa')
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Pago registrado')
-    expect(calls.find((c) => c.method === 'POST')!.body).toEqual({ amount: '150.5', paymentMethod: 'CARD', note: 'Seña' })
-    await waitFor(() => expect(calls.filter((c) => c.method === 'GET' && c.path === '/api/accounts')).toHaveLength(2))
-    expect(screen.getByLabelText('Importe')).toHaveValue('')
+    expect(within(barra()!).getByText('Tenés 1 cambio sin guardar')).toBeInTheDocument()
+    expect(screen.getByLabelText('Localidad')).toHaveClass('bg-amber-100')
+
+    await user.type(screen.getByLabelText('Domicilio'), ' Norte')
+    expect(within(barra()!).getByText('Tenés 2 cambios sin guardar')).toBeInTheDocument()
   })
 
-  it('"Registrar pago" está deshabilitado sin importe y no manda la nota si está vacía', async () => {
-    const { calls } = api([ficha(3)], { 'POST /api/accounts/3/payments': () => ficha(3) })
+  it('si lo escrito vuelve a ser igual a lo guardado, ya no cuenta como cambio', async () => {
+    api([ficha(3)])
     const user = userEvent.setup()
     render()
-    await screen.findByText('Al día')
-    expect(screen.getByRole('button', { name: 'Registrar pago' })).toBeDisabled()
+    await screen.findByLabelText('Señor/es')
 
-    await user.type(screen.getByLabelText('Importe'), '10')
-    await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
+    await user.type(screen.getByLabelText('Localidad'), 'F')
+    expect(barra()).toBeInTheDocument()
+    await user.clear(screen.getByLabelText('Localidad'))
 
-    await screen.findByRole('status')
-    expect(calls.find((c) => c.method === 'POST')!.body).toEqual({ amount: '10', paymentMethod: 'CASH' })
+    expect(barra()).not.toBeInTheDocument()
   })
 
-  it('informa lo que hay que pagar hoy, con recargos, y avisa que un pago parcial no cambia el vencimiento', async () => {
-    api([vencida()])
+  it('los espacios de los costados no cuentan como cambio', async () => {
+    api([ficha(3)])
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+
+    await user.type(screen.getByLabelText('Domicilio'), '  ')
+
+    expect(barra()).not.toBeInTheDocument()
+  })
+
+  it('el CUIT escrito con otros guiones pero con los mismos dígitos no cuenta como cambio', async () => {
+    api([ficha(3)], {}, { ...maria, cuit: '27123456789' })
+    const user = userEvent.setup()
     render()
 
-    const texto = await screen.findByText(/Saldo a pagar hoy/)
-    expect(texto).toHaveTextContent(/\$\s?1\.050,00/)
-    expect(texto).toHaveTextContent('incluye los recargos que ya corresponden')
-    expect(texto).toHaveTextContent('Un pago parcial no cambia el vencimiento')
+    const cuit = await screen.findByLabelText('C.U.I.T. del cliente')
+    expect(cuit).toHaveValue('27-12345678-9')
+    await user.clear(cuit)
+    await user.type(cuit, '27 12345678 9')
+
+    expect(barra()).not.toBeInTheDocument()
   })
 
-  it('si la API rechaza el pago muestra su mensaje y conserva lo escrito', async () => {
-    api([ficha(3)], {
-      'POST /api/accounts/3/payments': () =>
-        Response.json({ error: 'El pago no puede superar el saldo de la cuenta (saldo actual: 450.00)' }, { status: 409 }),
+  it('cambiar la fecha no es un cambio para guardar', async () => {
+    api([ficha(3)])
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+
+    await user.clear(screen.getByLabelText('Día'))
+    await user.type(screen.getByLabelText('Día'), '1')
+
+    expect(screen.getByLabelText('Día')).toHaveValue('1')
+    expect(barra()).not.toBeInTheDocument()
+  })
+
+  it('"Guardar cambios" guarda al cliente enviando todos sus datos (no se borra ninguno), avisa y recarga', async () => {
+    let guardado = maria
+    const { calls } = api([ficha(3)], {
+      'GET /api/customers/5': () => guardado,
+      'PUT /api/customers/5': ({ body }) => (guardado = { ...maria, ...(body as object) }),
     })
     const user = userEvent.setup()
     render()
-    await screen.findByText('Al día')
+    await screen.findByLabelText('Señor/es')
 
-    await user.type(screen.getByLabelText('Importe'), '9999')
-    await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
+    await user.type(screen.getByLabelText('Localidad'), '  Formosa ')
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('El pago no puede superar el saldo de la cuenta (saldo actual: 450.00)')
-    expect(screen.getByLabelText('Importe')).toHaveValue('9999')
-    expect(screen.queryByText('Pago registrado')).not.toBeInTheDocument()
+    expect(await screen.findByRole('status')).toHaveTextContent('Cambios guardados')
+    expect(puts(calls, '/api/customers/5')).toHaveLength(1)
+    expect(puts(calls, '/api/customers/5')[0]!.body).toEqual({
+      name: 'María Gómez',
+      phone: '370 4123456',
+      dni: '30123456',
+      address: 'España 123',
+      locality: 'Formosa',
+      taxCondition: null,
+      cuit: '',
+      notes: 'Paga los viernes',
+      creditAuthorized: true,
+      active: true,
+    })
+    expect(barra()).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Localidad')).toHaveValue('Formosa')
+    expect(calls.filter((c) => c.method === 'GET' && c.path === '/api/customers/5')).toHaveLength(2)
+    expect(puts(calls, '/api/accounts/3/remito')).toHaveLength(0) // lo que no cambió no se manda
+    expect(puts(calls, '/api/settings/business')).toHaveLength(0)
   })
 
-  it('después de un pago que cancela la ficha, el aviso sigue visible y la ficha pasa al historial', async () => {
+  it('el CUIT se manda solo con dígitos y el nombre y el domicilio también se guardan', async () => {
+    const { calls } = api([ficha(3)], { 'PUT /api/customers/5': () => maria })
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+
+    await escribir(user, 'Señor/es', 'María del Carmen Gómez')
+    await escribir(user, 'Domicilio', 'Belgrano 456')
+    await user.type(screen.getByLabelText('C.U.I.T. del cliente'), '27-12345678-9')
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(() => expect(puts(calls, '/api/customers/5')).toHaveLength(1))
+    expect(puts(calls, '/api/customers/5')[0]!.body).toMatchObject({ name: 'María del Carmen Gómez', address: 'Belgrano 456', cuit: '27123456789' })
+  })
+
+  it('la condición de IVA se tilda y se guarda; al tocar el tildado vuelve a sin dato', async () => {
+    const { calls } = api([ficha(3)], { 'PUT /api/customers/5': () => maria })
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+
+    await user.click(screen.getByRole('radio', { name: 'Resp. Inscripto' }))
+    expect(screen.getByRole('radio', { name: 'Resp. Inscripto' })).toHaveAttribute('aria-checked', 'true')
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+    await waitFor(() => expect(puts(calls, '/api/customers/5')).toHaveLength(1))
+    expect(puts(calls, '/api/customers/5')[0]!.body).toMatchObject({ taxCondition: 'REGISTERED' })
+  })
+
+  it('tocar el casillero tildado de un cliente que ya tenía condición lo deja sin dato al guardar', async () => {
+    const { calls } = api([ficha(3)], { 'PUT /api/customers/5': () => maria }, { ...maria, taxCondition: 'MONOTAX' })
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+    expect(screen.getByRole('radio', { name: 'Monotributo' })).toHaveAttribute('aria-checked', 'true')
+
+    await user.click(screen.getByRole('radio', { name: 'Monotributo' }))
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(() => expect(puts(calls, '/api/customers/5')).toHaveLength(1))
+    expect(puts(calls, '/api/customers/5')[0]!.body).toMatchObject({ taxCondition: null })
+  })
+
+  it('los dos números del remito se guardan en la ficha, mandando los dos, y después ya no figuran como cambios', async () => {
+    let guardada = ficha(3, { number: '10' })
+    const { calls } = api([], {
+      'GET /api/accounts': () => [guardada],
+      'PUT /api/accounts/3/remito': ({ body }) => (guardada = ficha(3, body as object)),
+    })
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+
+    await user.type(screen.getByLabelText('Remito Nº'), ' 0001-00004567 ')
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(() => expect(puts(calls, '/api/accounts/3/remito')).toHaveLength(1))
+    expect(puts(calls, '/api/accounts/3/remito')[0]!.body).toEqual({ number: '10', remitoNumber: '0001-00004567' })
+    expect(puts(calls, '/api/customers/5')).toHaveLength(0)
+    await waitFor(() => expect(barra()).not.toBeInTheDocument())
+    expect(screen.getByLabelText('Remito Nº')).toHaveValue('0001-00004567')
+    expect(screen.getByLabelText('Número de ficha')).toHaveValue('10')
+  })
+
+  it('si la ficha se cancela con un pago, lo escrito en sus números ya no cuenta como cambio', async () => {
     let pagado = false
     api([], {
       'GET /api/accounts': () => (pagado ? [cancelada()] : [ficha(3)]),
@@ -449,85 +458,317 @@ describe('CustomerFichaPage: pagos y recargos', () => {
     })
     const user = userEvent.setup()
     render()
-    await screen.findByText('Al día')
+    await screen.findByLabelText('Señor/es')
+    await user.type(screen.getByLabelText('Remito Nº'), '77')
+    expect(within(barra()!).getByText('Tenés 1 cambio sin guardar')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Registrar un pago' }))
     await user.type(screen.getByLabelText('Importe'), '450')
     await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
 
-    expect(await screen.findByText(/No tiene una ficha abierta/)).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('Pago registrado')
-    expect(screen.getByText('Historial de fichas canceladas')).toBeInTheDocument()
+    await screen.findByText('Pago registrado')
+    await waitFor(() => expect(screen.getByLabelText('Remito Nº')).toBeDisabled())
+    expect(barra()).not.toBeInTheDocument()
+  })
+
+  it('los datos del comercio se guardan en la base, todos juntos', async () => {
+    const { calls } = api([ficha(3)], { 'PUT /api/settings/business': () => comercio })
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+
+    await escribir(user, 'Nombre del comercio', 'Otro comercio')
+    await user.selectOptions(screen.getByLabelText('Condición frente a ARCA del comercio'), 'MONOTAX')
+    await escribir(user, 'C.U.I.T. del comercio', '30-71234567-8')
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(() => expect(puts(calls, '/api/settings/business')).toHaveLength(1))
+    expect(puts(calls, '/api/settings/business')[0]!.body).toEqual({
+      name: 'Otro comercio',
+      owner: 'Titular de prueba',
+      address: 'Calle 1',
+      taxCondition: 'MONOTAX',
+      cuit: '30712345678',
+      grossIncome: '123-456',
+      activityStart: '03/2011',
+    })
+  })
+
+  it('con el encabezado vacío se completa una sola vez y se guarda', async () => {
+    const { calls } = api([ficha(3)], { 'PUT /api/settings/business': () => comercio }, maria, comercioVacio)
+    const user = userEvent.setup()
+    render()
+
+    expect(await screen.findByText(/El encabezado del comercio está vacío/)).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Nombre del comercio'), 'Comercio')
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(() => expect(puts(calls, '/api/settings/business')).toHaveLength(1))
+    expect(puts(calls, '/api/settings/business')[0]!.body).toEqual({
+      name: 'Comercio',
+      owner: '',
+      address: '',
+      taxCondition: null,
+      cuit: '',
+      grossIncome: '',
+      activityStart: '',
+    })
+  })
+
+  it('con el encabezado cargado no muestra el aviso de encabezado vacío', async () => {
+    api([ficha(3)])
+    render()
+    await screen.findByLabelText('Señor/es')
+
+    expect(screen.queryByText(/El encabezado del comercio está vacío/)).not.toBeInTheDocument()
+  })
+
+  it('con cambios en el cliente, la ficha y el comercio hace tres guardados, cada uno en su lugar', async () => {
+    const { calls } = api([ficha(3)], {
+      'PUT /api/customers/5': () => maria,
+      'PUT /api/accounts/3/remito': () => ficha(3),
+      'PUT /api/settings/business': () => comercio,
+    })
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+
+    await user.type(screen.getByLabelText('Localidad'), 'Formosa')
+    await user.type(screen.getByLabelText('Número de ficha'), '5')
+    await user.type(screen.getByLabelText('Ingresos Brutos'), '9')
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Cambios guardados'))
+    expect(puts(calls, '/api/customers/5')).toHaveLength(1)
+    expect(puts(calls, '/api/accounts/3/remito')).toHaveLength(1)
+    expect(puts(calls, '/api/settings/business')).toHaveLength(1)
+  })
+
+  it('si un guardado falla muestra cuál, los otros igual se guardan y lo que falló sigue escrito', async () => {
+    const { calls } = api([ficha(3)], {
+      'PUT /api/customers/5': () => Response.json({ error: 'El nombre no puede estar vacío' }, { status: 400 }),
+      'PUT /api/settings/business': () => comercio,
+    })
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+
+    await escribir(user, 'Señor/es', '')
+    await user.type(screen.getByLabelText('Ingresos Brutos'), '9')
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Datos del cliente: El nombre no puede estar vacío')
+    expect(puts(calls, '/api/settings/business')).toHaveLength(1)
+    expect(screen.getByLabelText('Señor/es')).toHaveValue('') // sigue escrito para corregirlo
+    expect(within(barra()!).getByText('Tenés 1 cambio sin guardar')).toBeInTheDocument()
+    expect(screen.queryByText('Cambios guardados')).not.toBeInTheDocument()
+  })
+
+  it('si fallan dos guardados muestra los dos mensajes', async () => {
+    const { calls } = api([ficha(3)], {
+      'PUT /api/customers/5': () => Response.json({ error: 'Error uno' }, { status: 400 }),
+      'PUT /api/accounts/3/remito': () => Response.json({ error: 'Error dos' }, { status: 400 }),
+    })
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+
+    await user.type(screen.getByLabelText('Localidad'), 'F')
+    await user.type(screen.getByLabelText('Número de ficha'), '1')
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    const alerta = await screen.findByRole('alert')
+    expect(alerta).toHaveTextContent('Datos del cliente: Error uno')
+    expect(alerta).toHaveTextContent('Números del remito: Error dos')
+    expect(calls.filter((c) => c.method === 'GET' && c.path === '/api/customers/5')).toHaveLength(1) // no se guardó nada: no recarga
+  })
+
+  it('"Descartar" borra lo escrito sin llamar a la API', async () => {
+    const { calls } = api([ficha(3)])
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+
+    await user.type(screen.getByLabelText('Localidad'), 'Formosa')
+    await user.click(screen.getByRole('button', { name: 'Descartar' }))
+
+    expect(screen.getByLabelText('Localidad')).toHaveValue('')
+    expect(barra()).not.toBeInTheDocument()
+    expect(calls.some((c) => c.method === 'PUT')).toBe(false)
+  })
+
+  it('"Descartar" también saca el mensaje de error de un guardado fallido', async () => {
+    api([ficha(3)], { 'PUT /api/customers/5': () => Response.json({ error: 'Falló' }, { status: 400 }) })
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+
+    await user.type(screen.getByLabelText('Localidad'), 'F')
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+    await screen.findByRole('alert')
+    await user.click(screen.getByRole('button', { name: 'Descartar' }))
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('sin ficha abierta, un cambio en el cliente se guarda y no se intenta guardar números de remito', async () => {
+    const { calls } = api([], { 'PUT /api/customers/5': () => maria })
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+
+    await user.type(screen.getByLabelText('Localidad'), 'Formosa')
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(() => expect(puts(calls, '/api/customers/5')).toHaveLength(1))
+    expect(calls.some((c) => c.path.endsWith('/remito'))).toBe(false)
+  })
+
+  it('un cambio nuevo borra el aviso de "Cambios guardados"', async () => {
+    api([ficha(3)], { 'PUT /api/customers/5': () => maria })
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+    await user.type(screen.getByLabelText('Localidad'), 'F')
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+    await screen.findByRole('status')
+
+    await user.type(screen.getByLabelText('Domicilio'), 'x')
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })
 
-describe('CustomerFichaPage: historial y compras de contado', () => {
-  it('las fichas canceladas van al historial, con sus artículos y sin acciones', async () => {
+describe('CustomerFichaPage: pagos desde el pie del remito', () => {
+  it('el formulario de pago está cerrado hasta que se toca el pie', async () => {
+    api([ficha(3)])
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+    expect(screen.queryByLabelText('Importe')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Registrar un pago' }))
+
+    expect(screen.getByLabelText('Importe')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Registrar un pago' }))
+    expect(screen.queryByLabelText('Importe')).not.toBeInTheDocument()
+  })
+
+  it('sin ficha abierta no se puede registrar un pago', async () => {
     api([cancelada()])
+    render()
+    await screen.findByLabelText('Señor/es')
+
+    expect(screen.queryByRole('button', { name: 'Registrar un pago' })).not.toBeInTheDocument()
+  })
+
+  it('registra un pago: manda importe con punto, medio de pago y nota; avisa, cierra el formulario y recarga', async () => {
+    let pagado = false
+    const { calls } = api([], {
+      'GET /api/accounts': () => [pagado ? ficha(3, { balance: '299.50' }) : ficha(3)],
+      'POST /api/accounts/3/payments': () => {
+        pagado = true
+        return ficha(3)
+      },
+    })
     const user = userEvent.setup()
     render()
+    await screen.findByLabelText('Señor/es')
+    await user.click(screen.getByRole('button', { name: 'Registrar un pago' }))
 
-    const resumen = await screen.findByText(/Ficha del 10\/3\/26 al 20\/3\/26/)
-    await user.click(resumen)
+    await user.type(screen.getByLabelText('Importe'), '150,5')
+    await user.selectOptions(screen.getByLabelText('Medio de pago'), 'Tarjeta')
+    await user.type(screen.getByLabelText('Nota (opcional)'), '  Seña  ')
+    await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
 
-    const detalle = resumen.closest('details')!
-    expect(within(detalle).getByText('Cuaderno rayado')).toBeInTheDocument()
-    expect(within(detalle).getByText(/Cancelada el/)).toHaveTextContent('20/3/26')
-    expect(screen.queryByRole('button', { name: 'Registrar pago' })).not.toBeInTheDocument()
-    expect(screen.queryByText(/A pagar hoy/)).not.toBeInTheDocument()
+    expect(await screen.findByRole('status')).toHaveTextContent('Pago registrado')
+    expect(calls.find((c) => c.method === 'POST')!.body).toEqual({ amount: '150.5', paymentMethod: 'CARD', note: 'Seña' })
+    await waitFor(() => expect(screen.getByTestId('remito-balance')).toHaveTextContent(/\$\s?299,50/))
+    expect(screen.queryByLabelText('Importe')).not.toBeInTheDocument()
+  })
+
+  it('un pago no borra lo que se estaba editando en el remito', async () => {
+    api([ficha(3)], { 'POST /api/accounts/3/payments': () => ficha(3) })
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+    await user.type(screen.getByLabelText('Localidad'), 'Formosa')
+
+    await user.click(screen.getByRole('button', { name: 'Registrar un pago' }))
+    await user.type(screen.getByLabelText('Importe'), '10')
+    await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
+    await screen.findByText('Pago registrado')
+
+    expect(screen.getByLabelText('Localidad')).toHaveValue('Formosa')
+    expect(within(barra()!).getByText('Tenés 1 cambio sin guardar')).toBeInTheDocument()
+  })
+
+  it('si la API rechaza el pago muestra su mensaje y conserva lo escrito', async () => {
+    api([ficha(3)], {
+      'POST /api/accounts/3/payments': () =>
+        Response.json({ error: 'El pago no puede superar el saldo de la cuenta (saldo actual: 450.00)' }, { status: 409 }),
+    })
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+    await user.click(screen.getByRole('button', { name: 'Registrar un pago' }))
+
+    await user.type(screen.getByLabelText('Importe'), '9999')
+    await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('El pago no puede superar el saldo de la cuenta (saldo actual: 450.00)')
+    expect(screen.getByLabelText('Importe')).toHaveValue('9999')
+  })
+
+  it('con recargos pendientes ofrece aplicarlos; los aplica avisando y recargando', async () => {
+    let aplicado = false
+    const { calls } = api([], {
+      'GET /api/accounts': () => [aplicado ? ficha(3, { balance: '1050.00', payable: '1050.00', overdue: true }) : vencida()],
+      'POST /api/accounts/3/surcharges': () => {
+        aplicado = true
+        return ficha(3)
+      },
+    })
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+    await user.click(screen.getByRole('button', { name: 'Registrar un pago' }))
+
+    expect(screen.getByText('Recargos que ya corresponden (todavía sin registrar)')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Aplicar recargos' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Recargos registrados')
+    expect(calls.some((c) => c.method === 'POST' && c.path === '/api/accounts/3/surcharges')).toBe(true)
+  })
+
+  it('sin recargos pendientes no ofrece "Aplicar recargos"', async () => {
+    api([ficha(3)])
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+    await user.click(screen.getByRole('button', { name: 'Registrar un pago' }))
+
     expect(screen.queryByRole('button', { name: 'Aplicar recargos' })).not.toBeInTheDocument()
   })
 
-  it('una ficha cancelada nunca ofrece aplicar recargos, aunque la respuesta traiga pendientes', async () => {
-    api([vencida({ status: 'CANCELLED', closedAt: '2026-03-20T10:00:00.000Z' })])
-    render()
-
-    await screen.findByText('Historial de fichas canceladas')
-    expect(screen.queryByRole('button', { name: 'Aplicar recargos' })).not.toBeInTheDocument()
-    expect(screen.queryByText(/Saldo a pagar hoy/)).not.toBeInTheDocument()
-  })
-
-  it('con una ficha abierta y una cancelada muestra cada una en su lugar', async () => {
-    api([ficha(3), cancelada()])
-    render()
-
-    expect(await screen.findByText('Al día')).toBeInTheDocument()
-    expect(screen.getByText('Historial de fichas canceladas')).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: 'Registrar pago' })).toHaveLength(1)
-  })
-
-  it('sin fichas canceladas no muestra el historial', async () => {
-    api([ficha(3)])
-    render()
-
-    await screen.findByText('Al día')
-    expect(screen.queryByText('Historial de fichas canceladas')).not.toBeInTheDocument()
-  })
-
-  it('las compras de contado se muestran aparte, con sus artículos y su total', async () => {
-    const venta = {
-      id: 40,
-      status: 'CONFIRMED',
-      createdAt: '2026-03-14T15:00:00.000Z',
-      discount: '0.00',
-      total: '75.00',
-      items: [{ productName: 'Goma', quantity: 3, unitPrice: '25.00', subtotal: '75.00' }],
-    }
-    api([], {}, [venta])
+  it('después de un pago que cancela la ficha el remito pasa a estar vacío', async () => {
+    let pagado = false
+    api([], {
+      'GET /api/accounts': () => (pagado ? [cancelada()] : [ficha(3)]),
+      'POST /api/accounts/3/payments': () => {
+        pagado = true
+        return cancelada()
+      },
+    })
     const user = userEvent.setup()
     render()
+    await screen.findByLabelText('Señor/es')
+    await user.click(screen.getByRole('button', { name: 'Registrar un pago' }))
+    await user.type(screen.getByLabelText('Importe'), '450')
+    await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
 
-    const resumen = await screen.findByText('Compras de contado (1)')
-    await user.click(resumen)
-
-    const detalle = resumen.closest('details')!
-    expect(within(detalle).getByText('Goma')).toBeInTheDocument()
-    expect(within(detalle).getByText('Total de las compras de contado').closest('tr')).toHaveTextContent(/\$\s?75,00/)
-  })
-
-  it('sin compras de contado no muestra esa sección', async () => {
-    api([ficha(3)])
-    render()
-
-    await screen.findByText('Al día')
-    expect(screen.queryByText(/Compras de contado/)).not.toBeInTheDocument()
+    expect(await screen.findByRole('status')).toHaveTextContent('Pago registrado')
+    await waitFor(() => expect(screen.queryByText('Cuaderno rayado')).not.toBeInTheDocument())
+    expect(screen.getByRole('img', { name: 'Cuenta Corriente: sin tildar' })).toBeInTheDocument()
   })
 })

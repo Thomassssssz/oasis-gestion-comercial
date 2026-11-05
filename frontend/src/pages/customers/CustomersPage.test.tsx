@@ -11,6 +11,9 @@ const ana = {
   phone: '370 4123456',
   dni: '30123456',
   address: 'España 123',
+  locality: 'Formosa',
+  taxCondition: 'MONOTAX',
+  cuit: '27123456789',
   notes: 'Paga los viernes',
   creditAuthorized: true,
   active: true,
@@ -35,7 +38,7 @@ const ficha = (customerId: number, extra: object = {}) => ({
   ...extra,
 })
 
-const beto = { ...ana, id: 2, name: 'Beto Díaz', phone: null, dni: null, address: null, notes: null, creditAuthorized: false }
+const beto = { ...ana, id: 2, name: 'Beto Díaz', phone: null, dni: null, address: null, locality: null, taxCondition: null, cuit: null, notes: null, creditAuthorized: false }
 
 describe('CustomersPage', () => {
   it('el nombre del cliente lleva a su ficha', async () => {
@@ -319,6 +322,9 @@ describe('CustomersPage', () => {
       phone: '370 4999999',
       dni: '30123456',
       address: 'España 123',
+      locality: 'Formosa', // lo que se edita en el remito no se borra al editar desde la lista
+      taxCondition: 'MONOTAX',
+      cuit: '27123456789',
       notes: 'Paga los viernes',
       creditAuthorized: false,
       active: true,
@@ -365,6 +371,9 @@ describe('CustomersPage', () => {
       phone: '370 4123456',
       dni: '30123456',
       address: 'España 123',
+      locality: 'Formosa',
+      taxCondition: 'MONOTAX',
+      cuit: '27123456789',
       notes: 'Paga los viernes',
       creditAuthorized: true,
       active: false,
@@ -383,7 +392,7 @@ describe('CustomersPage', () => {
     await user.click(screen.getByRole('button', { name: 'Reactivar a Beto Díaz' }))
 
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
-    expect(calls.find((c) => c.method === 'PUT')?.body).toMatchObject({ phone: '', dni: '', active: true })
+    expect(calls.find((c) => c.method === 'PUT')?.body).toMatchObject({ phone: '', dni: '', locality: '', taxCondition: null, cuit: '', active: true })
   })
 
   it('avisa si falla dar de baja', async () => {

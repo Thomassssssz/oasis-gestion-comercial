@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { createCustomer, updateCustomer } from '@/services/customers/customer.service'
+import { createCustomer, customerData, updateCustomer } from '@/services/customers/customer.service'
 import type { Customer } from '@/types/customer.types'
 import { describeError } from '@/utils/errors'
 
@@ -30,7 +30,8 @@ export default function CustomerForm({ customer, onSaved, onCancel }: Props) {
     const data = { name, phone, dni, address, notes, creditAuthorized }
 
     try {
-      if (customer) await updateCustomer(customer.id, { ...data, active: customer.active })
+      // Al editar se reenvían también la localidad, la condición de IVA y el CUIT, que se editan en el remito: no se borran.
+      if (customer) await updateCustomer(customer.id, customerData(customer, data))
       else await createCustomer(data)
       onSaved()
     } catch (e) {

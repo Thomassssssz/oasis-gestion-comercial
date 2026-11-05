@@ -49,6 +49,8 @@ export type CreditAccount = {
   openedAt: string
   dueDate: string // un mes después de la primera venta a crédito; no cambia
   closedAt: string | null
+  number: string | null // el "Nº" que se escribe a mano en el remito
+  remitoNumber: string | null // el "Remito Nº"
   balance: string // saldo registrado (ventas + recargos registrados − pagos)
   pendingSurchargesTotal: string
   payable: string // saldo + recargos que ya corresponden: lo que hay que pagar hoy
