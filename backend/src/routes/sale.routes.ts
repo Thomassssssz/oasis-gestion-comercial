@@ -5,8 +5,8 @@ import { createSaleRepository } from "../repositories/sale.repository.js";
 import { createSaleService } from "../services/sale.service.js";
 
 // Rutas de ventas. No hay PUT ni DELETE: una venta no se edita ni se borra, se anula (D3).
-export function createSaleRouter(prisma: PrismaClient) {
-  const controller = createSaleController(createSaleService(createSaleRepository(prisma)));
+export function createSaleRouter(prisma: PrismaClient, now?: () => Date) {
+  const controller = createSaleController(createSaleService(createSaleRepository(prisma), now));
   const router = Router();
 
   router.get("/", controller.list);

@@ -6,6 +6,7 @@ import { errorHandler } from "./middlewares/error.middleware.js";
 import { createAuthRepository } from "./repositories/auth.repository.js";
 import { createAuthRouter } from "./routes/auth.routes.js";
 import { createCategoryRouter } from "./routes/category.routes.js";
+import { createCreditAccountRouter } from "./routes/credit-account.routes.js";
 import { createCustomerRouter } from "./routes/customer.routes.js";
 import { healthRouter } from "./routes/health.routes.js";
 import { createProductRouter } from "./routes/product.routes.js";
@@ -14,12 +15,14 @@ import { createSettingRouter } from "./routes/setting.routes.js";
 import { createStockMovementRouter } from "./routes/stock-movement.routes.js";
 import { createAuthService } from "./services/auth.service.js";
 
-// loginLimiter y now son opcionales: las pruebas los reemplazan para controlar el tiempo.
-type AppDeps = { prisma: PrismaClient; loginLimiter?: LoginLimiter; now?: () => Date };
+// loginLimiter, now y businessNow son opcionales: las pruebas los reemplazan para controlar el tiempo.
+// now es el reloj de las sesiones y el login; businessNow, el de las reglas del negocio (vencimientos, recargos).
+// Están separados para poder "viajar en el tiempo" en las pruebas de cuentas corrientes sin vencer las sesiones.
+type AppDeps = { prisma: PrismaClient; loginLimiter?: LoginLimiter; now?: () => Date; businessNow?: () => Date };
 
 // Crea la aplicación Express. Está separada de server.ts para poder
 // probarla con Supertest sin abrir un puerto real.
-export function createApp({ prisma, loginLimiter = createLoginLimiter(), now }: AppDeps) {
+export function createApp({ prisma, loginLimiter = createLoginLimiter(), now, businessNow = now }: AppDeps) {
   const app = express();
 
   // No revelar con qué tecnología está hecho el servidor.
@@ -38,8 +41,9 @@ export function createApp({ prisma, loginLimiter = createLoginLimiter(), now }: 
   app.use("/api/categories", requireAuth, createCategoryRouter(prisma));
   app.use("/api/products", requireAuth, createProductRouter(prisma));
   app.use("/api/stock-movements", requireAuth, createStockMovementRouter(prisma));
-  app.use("/api/sales", requireAuth, createSaleRouter(prisma));
+  app.use("/api/sales", requireAuth, createSaleRouter(prisma, businessNow));
   app.use("/api/customers", requireAuth, createCustomerRouter(prisma));
+  app.use("/api/accounts", requireAuth, createCreditAccountRouter(prisma, businessNow));
   app.use("/api/settings", requireAuth, createSettingRouter(prisma));
 
   // Cualquier ruta que no exista responde 404 en formato JSON.

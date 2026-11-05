@@ -75,16 +75,18 @@ Reglas: la `note` es opcional (hasta 500 caracteres). Un ajuste no puede dejar e
 
 ## Ventas
 
-Requieren sesión (401 si no hay). Venta rápida: el precio siempre es el de lista del producto (D13-a). El total no se guarda: se calcula sumando los ítems (D13-c).
+Requieren sesión (401 si no hay). El precio siempre es el de lista del producto (D13-a). El total no se guarda: se calcula sumando los ítems y restando el descuento (D13-c, D17-c). La misma ruta registra la venta rápida y la completa (D17-a).
 
 | Método y ruta | Qué hace | Respuestas |
 |---|---|---|
-| `GET /sales` | Lista del más nuevo al más viejo, con total e ítems. Filtros opcionales: `status` (`CONFIRMED` o `ANNULLED`), `paymentMethod`, `limit` (de 1 a 200, 50 por defecto) | 200, 400 |
+| `GET /sales` | Lista del más nuevo al más viejo, con total e ítems. Filtros opcionales: `status` (`CONFIRMED` o `ANNULLED`), `paymentMethod`, `customerId`, `onCredit` (`true` o `false`), `limit` (de 1 a 200, 50 por defecto) | 200, 400 |
 | `GET /sales/:id` | Devuelve una venta con su detalle | 200, 400, 404 |
-| `POST /sales` | Registra una venta. Cuerpo: `{ "paymentMethod", "items": [{ "productId", "quantity" }] }` | 201, 400, 409 |
+| `POST /sales` | Registra una venta. Cuerpo: `{ "paymentMethod", "items": [{ "productId", "quantity" }], "customerId"?, "discount"?, "note"?, "onCredit"? }` | 201, 400, 409 |
 | `POST /sales/:id/annul` | Anula una venta. Cuerpo: `{ "reason" }` | 200, 400, 404, 409 |
 
-`paymentMethod` es uno de `CASH`, `TRANSFER`, `CARD`, `DIGITAL_WALLET`. Cada venta devuelve `total` e importes como texto con 2 decimales, `status`, `userName` (quién la registró), `items` (con `productName`, `quantity`, `unitPrice` y `subtotal`) y `annulment` (`null` si está confirmada; si no, `at`, `byName` y `reason`).
+`paymentMethod` es uno de `CASH`, `TRANSFER`, `CARD`, `DIGITAL_WALLET`. Cada venta devuelve `subtotal`, `discount`, `total` e importes como texto con 2 decimales, `status`, `userName` (quién la registró), `items` (con `productName`, `quantity`, `unitPrice` y `subtotal`) y `annulment` (`null` si está confirmada; si no, `at`, `byName` y `reason`).
+
+Venta completa (D17): `customerId` (cliente activo), `discount` (importe en pesos, texto o número con hasta 2 decimales; tiene que ser menor al subtotal), `note` (hasta 500 caracteres) y `onCredit`. Si `onCredit` es verdadero hace falta `customerId` de un cliente **autorizado a crédito** (409 si no) y **no se manda** `paymentMethod`; si es falso, `paymentMethod` es obligatorio. La venta a crédito se suma a la ficha abierta del cliente o abre una nueva (`accountId`). La respuesta incluye `customer` (`{ id, name }` o `null`), `onCredit`, `accountId` y `note`. Anular una venta a crédito baja el saldo de la ficha; si ya se pagó más de lo que quedaría, responde 409.
 
 Reglas: hace falta al menos un producto (hasta 100) y no se puede repetir un producto en la misma venta; la cantidad es un entero mayor que cero. Si un producto no existe responde 400. Si un producto está dado de baja o no tiene stock suficiente, responde 409 con el producto y su stock actual, y **no se guarda nada** (todo o nada). Al confirmar se descuenta el stock; al anular se devuelve con un movimiento propio. Una venta anulada no se puede volver a anular (409) y sigue en el historial. El motivo de anulación es obligatorio (hasta 500 caracteres). Quién registra y quién anula sale de la sesión, nunca del cuerpo del pedido. No hay `PUT` ni `DELETE` (D3).
 
@@ -114,3 +116,15 @@ Requieren sesión (401 si no hay). Hoy hay un solo parámetro: el recargo por mo
 | `PUT /settings` | Cambia los parámetros. Cuerpo: `{ "lateFeePercent": "7.5" }` (texto o número) | 200, 400 |
 
 Reglas: el porcentaje va de 0 a 100 con hasta 2 decimales y punto decimal (la coma se rechaza). Quién lo cambió sale de la sesión, nunca del cuerpo. No se pueden crear ni borrar parámetros.
+
+
+## Cuentas corrientes
+
+Requieren sesión (401 si no hay). Las fichas se abren solas al vender a crédito (D17); no hay `POST`, `PUT` ni `DELETE`.
+
+| Método y ruta | Qué hace | Respuestas |
+|---|---|---|
+| `GET /accounts` | Lista las fichas, las más nuevas primero. Filtros opcionales: `status` (`OPEN` = pendientes, `CANCELLED` = historial) y `customerId` | 200, 400 |
+| `GET /accounts/:id` | Devuelve una ficha con sus ventas | 200, 400, 404 |
+
+Cada ficha devuelve `id`, `customer` (`{ id, name }`), `status`, `openedAt`, `dueDate`, `closedAt`, `balance` (texto con 2 decimales, calculado), `overdue` (verdadero si está abierta y ya pasó el vencimiento), `monthsOverdue` (meses de atraso completos; 0 si no está vencida o está cancelada) y `sales` (`id`, `status`, `createdAt`, `note`, `total`).

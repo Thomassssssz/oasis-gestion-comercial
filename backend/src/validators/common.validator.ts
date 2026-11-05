@@ -31,3 +31,21 @@ export const phoneSchema = z
       .regex(/^[0-9+()\s-]{6,30}$/, "El teléfono solo puede tener números, espacios, +, - y paréntesis (de 6 a 30 caracteres)")
       .nullable(),
   );
+
+// Importes en pesos: se reciben como texto ("1234.50") o número, con hasta 10 dígitos enteros y 2 decimales.
+// Nunca se operan como float: se guardan y calculan como Decimal.
+const AMOUNT_PATTERN = /^\d{1,10}(\.\d{1,2})?$/;
+
+function amountSchema(label: string) {
+  return z
+    .union([z.string(), z.number()], { error: `${label} es obligatorio` })
+    .transform((value) => String(value).trim())
+    .pipe(z.string().regex(AMOUNT_PATTERN, `${label} debe ser un importe válido con hasta 2 decimales`));
+}
+
+// Importe mayor que cero (por ejemplo, un pago).
+export const positiveAmountSchema = (label: string) =>
+  amountSchema(label).refine((value) => Number(value) > 0, `${label} debe ser mayor que cero`);
+
+// Importe de cero en adelante (por ejemplo, un descuento: 0 significa sin descuento).
+export const nonNegativeAmountSchema = (label: string) => amountSchema(label);

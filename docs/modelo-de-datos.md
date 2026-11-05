@@ -103,7 +103,7 @@ El **stock de un producto** es la suma de `quantity` de todos sus movimientos (D
 - Que un ajuste no pueda dejar el stock por debajo de cero (propuesta de Claude, ver D12-f).
 - Que el listado de motivos de ajuste sea exactamente el de D7.
 
-## Módulo 3 – Ventas rápidas
+## Módulo 3 – Ventas (rápidas y completas)
 
 ### Sale (Venta)
 
@@ -111,7 +111,12 @@ El **stock de un producto** es la suma de `quantity` de todos sus movimientos (D
 |---|---|---|
 | id | entero, clave primaria | autoincremental |
 | status | `CONFIRMED` o `ANNULLED` | una venta nace confirmada; se puede anular, nunca borrar (D3) |
-| paymentMethod | `CASH`, `TRANSFER`, `CARD` o `DIGITAL_WALLET` | efectivo, transferencia, tarjeta o billetera virtual |
+| paymentMethod | `CASH`, `TRANSFER`, `CARD` o `DIGITAL_WALLET`, o vacío | efectivo, transferencia, tarjeta o billetera virtual. Vacío solo en las ventas a crédito (se cobra después) |
+| customerId | entero, clave foránea → Customer, opcional | cliente de la venta completa (D17-b) |
+| discountAmount | decimal(12,2), no negativo, por defecto 0 | descuento en pesos de toda la venta (D17-c) |
+| note | texto opcional, no solo espacios | nota de casos especiales (D17-d) |
+| onCredit | verdadero o falso | si la venta se carga a la cuenta corriente del cliente |
+| creditAccountId | entero, clave foránea → CreditAccount, opcional | ficha a la que pertenece; obligatoria si `onCredit` |
 | userId | entero, clave foránea → User | quién registró la venta (auditoría) |
 | createdAt | fecha y hora | cuándo se registró |
 | annulledAt, annulledById, annulmentReason | fecha, clave foránea → User, texto | cuándo, quién y por qué se anuló. Vacíos mientras la venta está confirmada; los tres obligatorios si está anulada |
@@ -126,9 +131,9 @@ El **stock de un producto** es la suma de `quantity` de todos sus movimientos (D
 | quantity | entero mayor que cero | unidades vendidas (D6) |
 | unitPrice | decimal(12,2) mayor que cero | precio de lista **del día de la venta** (D13-a) |
 
-El **total de la venta no se guarda**: es la suma de `quantity × unitPrice` de sus ítems (D13-c). Confirmar una venta crea un movimiento de stock `SALE` por ítem; anularla crea uno `SALE_ANNULMENT` por ítem (D13).
+El **total de la venta no se guarda**: es la suma de `quantity × unitPrice` de sus ítems menos `discountAmount` (D13-c, D17-c). Confirmar una venta crea un movimiento de stock `SALE` por ítem; anularla crea uno `SALE_ANNULMENT` por ítem (D13).
 
-**Reglas que hace cumplir la propia base de datos:** una venta confirmada no tiene datos de anulación y una anulada los tiene todos (con motivo no vacío); cantidad y precio de cada ítem mayores que cero; no se puede borrar una venta, ni un producto o usuario que tengan ventas.
+**Reglas que hace cumplir la propia base de datos:** una venta confirmada no tiene datos de anulación y una anulada los tiene todos (con motivo no vacío); cantidad y precio de cada ítem mayores que cero; el descuento no es negativo; una venta a crédito tiene cliente y ficha y no tiene medio de pago, y una que no es a crédito tiene medio de pago y no tiene ficha; no se puede borrar una venta, ni un producto, usuario, cliente o ficha que tengan ventas.
 
 ### Por qué está en 3FN
 
@@ -136,6 +141,7 @@ El **total de la venta no se guarda**: es la suma de `quantity × unitPrice` de 
 - Los datos del producto (nombre, categoría) y del usuario (nombre) no se repiten en `Sale` ni `SaleItem`: se llega a ellos con `productId` y `userId`.
 - `unitPrice` **no** es un dato repetido de `Product.salePrice`: es el precio histórico del día de la venta, que no se puede deducir del precio actual (puede haber cambiado). Por eso se guarda en el ítem.
 - No hay datos derivados guardados: el total de la venta y el stock se calculan.
+- Los datos del cliente (nombre, DNI) no se copian a la venta: se llega a ellos con `customerId`.
 - Los campos de anulación (`annulledAt`, `annulledById`, `annulmentReason`) describen a la venta como un todo y dependen solo de su `id`.
 
 ### Supuestos a confirmar (no están relevados)
@@ -202,3 +208,34 @@ Esta tabla todavía no se relaciona con otras: las ventas con cliente y las cuen
 
 - Que cualquier usuario pueda cambiar el porcentaje (hoy no hay roles, D4).
 - Que el rango de 0 a 100 sea suficiente.
+
+
+## Módulo 5 (parte) – Fichas de cuenta corriente
+
+### CreditAccount (Ficha de cuenta corriente)
+
+| Campo | Tipo | Detalle |
+|---|---|---|
+| id | entero, clave primaria | autoincremental |
+| customerId | entero, clave foránea → Customer | de quién es la ficha |
+| status | `OPEN` o `CANCELLED` | pendiente o cancelada (historial separado) |
+| openedAt | fecha y hora | momento de la primera venta a crédito del ciclo (D17-f) |
+| dueDate | fecha y hora | `openedAt` + 1 mes. No cambia con ventas ni pagos posteriores |
+| closedAt | fecha y hora, opcional | cuándo se canceló; vacío mientras está abierta |
+
+El **saldo no se guarda**: se calcula con las ventas de la ficha (`Sale.creditAccountId`) menos descuentos, anuladas excluidas (D17-h). Los pagos y recargos se agregan en la etapa siguiente como tablas propias.
+
+**Reglas que hace cumplir la propia base de datos:** el vencimiento es posterior a la apertura; una ficha abierta no tiene fecha de cierre y una cancelada sí; un cliente tiene **como máximo una ficha abierta** (índice único parcial) pero puede tener muchas canceladas; no se puede borrar un cliente con fichas ni una ficha con ventas.
+
+### Por qué está en 3FN
+
+- Clave de un solo campo (`id`): cumple 2FN.
+- El nombre y los datos del cliente no se repiten: se llega con `customerId`.
+- `dueDate` depende de la ficha (de su `openedAt` y de la regla de un mes vigente cuando se abrió). Se guarda a propósito porque es un dato histórico del ciclo: si mañana cambia el plazo, las fichas viejas deben conservar el suyo. No es un derivado recalculable, y por eso no viola 3FN.
+- El saldo y el estado de mora (vencida o no) se calculan; no se guardan.
+- `status` y `closedAt` describen a la ficha como un todo.
+
+### Supuestos a confirmar (no están relevados)
+
+- Que haya una sola ficha abierta por cliente y que una compra a crédito después de cancelar abra un ciclo nuevo (D17-f, D17-g).
+- Qué pasa al reabrir una ficha cancelada.

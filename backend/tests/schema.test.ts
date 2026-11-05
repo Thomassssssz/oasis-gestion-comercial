@@ -329,3 +329,88 @@ describe("esquema: parámetros", () => {
     await expect(prisma.user.delete({ where: { id: user.id } })).rejects.toThrow();
   });
 });
+
+describe("esquema: fichas de cuenta corriente y venta completa", () => {
+  const opened = new Date("2026-03-10T15:00:00.000Z");
+  const due = new Date("2026-04-10T15:00:00.000Z");
+
+  async function seedUserAndCustomer() {
+    const user = await prisma.user.create({ data: { username: "ana", fullName: "Ana", passwordHash: "x" } });
+    const customer = await prisma.customer.create({ data: { name: "Ana", creditAuthorized: true } });
+    return { user, customer };
+  }
+
+  it("el vencimiento tiene que ser posterior a la apertura", async () => {
+    const { customer } = await seedUserAndCustomer();
+
+    await expect(prisma.creditAccount.create({ data: { customerId: customer.id, openedAt: opened, dueDate: opened } })).rejects.toThrow();
+    await expect(prisma.creditAccount.create({ data: { customerId: customer.id, openedAt: opened, dueDate: due } })).resolves.toBeTruthy();
+  });
+
+  it("una ficha abierta no tiene fecha de cierre y una cancelada sí", async () => {
+    const { customer } = await seedUserAndCustomer();
+    const base = { customerId: customer.id, openedAt: opened, dueDate: due };
+
+    await expect(prisma.creditAccount.create({ data: { ...base, status: "OPEN", closedAt: due } })).rejects.toThrow();
+    await expect(prisma.creditAccount.create({ data: { ...base, status: "CANCELLED" } })).rejects.toThrow();
+    await expect(prisma.creditAccount.create({ data: { ...base, status: "CANCELLED", closedAt: due } })).resolves.toBeTruthy();
+  });
+
+  it("un cliente tiene como máximo una ficha abierta, pero puede tener varias canceladas", async () => {
+    const { customer } = await seedUserAndCustomer();
+    const base = { customerId: customer.id, openedAt: opened, dueDate: due };
+
+    await prisma.creditAccount.create({ data: base });
+    await expect(prisma.creditAccount.create({ data: base })).rejects.toThrow();
+
+    await prisma.creditAccount.create({ data: { ...base, status: "CANCELLED", closedAt: due } });
+    await prisma.creditAccount.create({ data: { ...base, status: "CANCELLED", closedAt: due } });
+    expect(await prisma.creditAccount.count()).toBe(3);
+  });
+
+  it("no permite borrar un cliente con fichas ni una ficha con ventas", async () => {
+    const { user, customer } = await seedUserAndCustomer();
+    const account = await prisma.creditAccount.create({ data: { customerId: customer.id, openedAt: opened, dueDate: due } });
+    await prisma.sale.create({ data: { userId: user.id, customerId: customer.id, onCredit: true, creditAccountId: account.id } });
+
+    await expect(prisma.customer.delete({ where: { id: customer.id } })).rejects.toThrow();
+    await expect(prisma.creditAccount.delete({ where: { id: account.id } })).rejects.toThrow();
+  });
+
+  describe("coherencia de la venta", () => {
+    it("una venta a crédito exige cliente y ficha, y no lleva medio de pago", async () => {
+      const { user, customer } = await seedUserAndCustomer();
+      const account = await prisma.creditAccount.create({ data: { customerId: customer.id, openedAt: opened, dueDate: due } });
+      const credit = { userId: user.id, onCredit: true };
+
+      await expect(prisma.sale.create({ data: { ...credit, creditAccountId: account.id } })).rejects.toThrow(); // sin cliente
+      await expect(prisma.sale.create({ data: { ...credit, customerId: customer.id } })).rejects.toThrow(); // sin ficha
+      await expect(
+        prisma.sale.create({ data: { ...credit, customerId: customer.id, creditAccountId: account.id, paymentMethod: "CASH" } }),
+      ).rejects.toThrow();
+      await expect(
+        prisma.sale.create({ data: { ...credit, customerId: customer.id, creditAccountId: account.id } }),
+      ).resolves.toBeTruthy();
+    });
+
+    it("una venta que no es a crédito exige medio de pago y no puede tener ficha", async () => {
+      const { user, customer } = await seedUserAndCustomer();
+      const account = await prisma.creditAccount.create({ data: { customerId: customer.id, openedAt: opened, dueDate: due } });
+
+      await expect(prisma.sale.create({ data: { userId: user.id } })).rejects.toThrow();
+      await expect(
+        prisma.sale.create({ data: { userId: user.id, paymentMethod: "CASH", creditAccountId: account.id } }),
+      ).rejects.toThrow();
+      await expect(prisma.sale.create({ data: { userId: user.id, paymentMethod: "CASH" } })).resolves.toBeTruthy();
+    });
+
+    it("el descuento no puede ser negativo y la nota no puede ser solo espacios", async () => {
+      const { user } = await seedUserAndCustomer();
+      const cash = { userId: user.id, paymentMethod: "CASH" as const };
+
+      await expect(prisma.sale.create({ data: { ...cash, discountAmount: "-1.00" } })).rejects.toThrow();
+      await expect(prisma.sale.create({ data: { ...cash, note: "   " } })).rejects.toThrow();
+      await expect(prisma.sale.create({ data: { ...cash, discountAmount: "0.00", note: "Pedido" } })).resolves.toBeTruthy();
+    });
+  });
+});

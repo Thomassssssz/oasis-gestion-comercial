@@ -109,6 +109,11 @@ enum PaymentMethod {
   DIGITAL_WALLET
 }
 
+enum CreditAccountStatus {
+  OPEN
+  CANCELLED
+}
+
 enum SaleStatus {
   CONFIRMED
   ANNULLED
@@ -119,9 +124,16 @@ enum SaleStatus {
 model Sale {
   id              Int             @id @default(autoincrement())
   status          SaleStatus      @default(CONFIRMED)
-  paymentMethod   PaymentMethod
+  paymentMethod   PaymentMethod?
   userId          Int
   user            User            @relation("SaleCreatedBy", fields: [userId], references: [id], onDelete: Restrict)
+  customerId      Int?
+  customer        Customer?       @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  discountAmount  Decimal         @default(0) @db.Decimal(12, 2)
+  note            String?
+  onCredit        Boolean         @default(false)
+  creditAccountId Int?
+  creditAccount   CreditAccount?  @relation(fields: [creditAccountId], references: [id], onDelete: Restrict)
   createdAt       DateTime        @default(now())
   annulledAt      DateTime?
   annulledById    Int?
@@ -133,6 +145,8 @@ model Sale {
   @@index([createdAt])
   @@index([userId])
   @@index([annulledById])
+  @@index([customerId])
+  @@index([creditAccountId])
 }
 
 // Un producto vendido en una venta. unitPrice es el precio de lista del día de la venta (D13-a).
@@ -152,16 +166,18 @@ model SaleItem {
 // Cliente del comercio. Tiene su ficha individual (D14). No se borra: se da de baja (active = false).
 // creditAuthorized indica si puede comprar a crédito; hoy es solo una casilla, sin límite de deuda (D14-b).
 model Customer {
-  id               Int      @id @default(autoincrement())
+  id               Int             @id @default(autoincrement())
   name             String
   phone            String?
-  dni              String?  @unique
+  dni              String?         @unique
   address          String?
   notes            String?
-  creditAuthorized Boolean  @default(false)
-  active           Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  creditAuthorized Boolean         @default(false)
+  active           Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  sales            Sale[]
+  creditAccounts   CreditAccount[]
 }
 
 // Parámetros del sistema. Hay una sola fila (id = 1). El recargo por mora es un parámetro configurable (D16).
@@ -171,4 +187,21 @@ model Setting {
   updatedAt      DateTime @updatedAt
   updatedById    Int?
   updatedBy      User?    @relation(fields: [updatedById], references: [id], onDelete: Restrict)
+}
+
+// Ficha de cuenta corriente de un cliente (D17). El primer producto a crédito que se registra en la ficha
+// inicia su plazo de un mes (openedAt -> dueDate); cada cliente tiene su propio ciclo. Cuando el saldo llega a cero
+// la ficha pasa a CANCELLED (historial). El saldo no se guarda: se calcula (D17-e).
+model CreditAccount {
+  id         Int                 @id @default(autoincrement())
+  customerId Int
+  customer   Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  status     CreditAccountStatus @default(OPEN)
+  openedAt   DateTime
+  dueDate    DateTime
+  closedAt   DateTime?
+  sales      Sale[]
+
+  @@index([customerId])
+  @@index([status, dueDate])
 }

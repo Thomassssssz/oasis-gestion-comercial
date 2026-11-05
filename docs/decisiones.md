@@ -145,3 +145,20 @@ La regla confirmada es que el recargo por mora es del 5% por mes y es un **pará
 - **d) Cambiar el porcentaje no reescribe el pasado:** los recargos que se registren van a guardar el porcentaje con el que se calcularon. Así no se recalcula nada en silencio.
 - **e) Cualquier usuario puede cambiarlo (a confirmar):** todavía no hay roles de usuario (D4), así que los dos propietarios pueden modificarlo.
 - **Cambio de contraseña:** la pantalla de Configuración también permite cambiar la propia contraseña (usa la API que ya existía, que cierra las demás sesiones).
+
+
+## D17 – Venta completa y fichas de cuenta corriente
+
+Lo confirmado por el comercio: venta rápida (productos, cantidades, total y medio de pago) y venta completa (además cliente, descuentos y casos especiales); solo los clientes autorizados compran a crédito; cada cliente tiene su ficha individual; el primer producto registrado en la ficha inicia el plazo de un mes de esa ficha, y cada cliente tiene su propio ciclo; las cuentas canceladas pasan a un historial separado. El resto son **propuestas de Claude, a confirmar con los propietarios**.
+
+- **a) Una sola venta, con datos opcionales:** la venta rápida y la completa usan la misma tabla y el mismo endpoint. La rápida no lleva cliente, descuento ni nota; la completa sí (propuesta).
+- **b) Cliente en una venta (propuesta):** tiene que existir y estar activo. Una venta de contado puede llevar cliente (para el historial) sin tocar ninguna ficha.
+- **c) Descuento (propuesta):** es un **importe en pesos** (no un porcentaje) que se resta del subtotal de la venta, y tiene que ser menor al subtotal (no puede dejarla en cero ni en negativo). No se prorratea por ítem: el descuento es de toda la venta. El total sigue sin guardarse: `total = Σ(cantidad × precio) − descuento`.
+- **d) Nota de "casos especiales" (propuesta):** texto libre opcional de hasta 500 caracteres. No tiene efecto en los cálculos; sirve para dejar constancia (pedido especial, acuerdo con el cliente, etc.).
+- **e) Venta a crédito (propuesta):** se marca con `onCredit`, exige cliente activo **autorizado** a crédito (si no, 409) y **no lleva medio de pago**, porque se cobra después. Descuenta stock igual que cualquier venta.
+- **f) Una ficha abierta por cliente (propuesta):** la primera venta a crédito de un cliente abre su ficha, con `openedAt` = momento de esa venta y `dueDate` = un mes después (**confirmado**: el primer producto inicia el plazo). Las ventas a crédito siguientes se suman a la misma ficha y **no mueven el vencimiento**. La base lo garantiza con un índice único parcial (una sola ficha `OPEN` por cliente).
+- **g) Ciclo nuevo (propuesta):** cuando la ficha se cancela, la próxima compra a crédito del cliente abre una ficha nueva con su propio plazo. Qué pasa con "reabrir una ficha cancelada" sigue **a confirmar**; mientras tanto no se reabre: se abre otra.
+- **h) Saldo no guardado:** el saldo de la ficha se calcula (ventas no anuladas menos descuentos, más recargos, menos pagos) para no tener datos derivados (3FN). El vencimiento sí se guarda: es una fecha histórica del ciclo, no se puede deducir después si cambia la regla del plazo.
+- **i) Anular una venta a crédito (propuesta):** baja el saldo de la ficha. Si el saldo queda en cero, la ficha pasa al historial de canceladas. Si el cliente ya pagó más de lo que quedaría debiendo, no se puede anular (409).
+- **j) Reloj de negocio:** las reglas de vencimiento usan un reloj propio (`businessNow`), separado del de las sesiones, para poder probar vencimientos sin vencer el login.
+- **k) Las fichas no se editan ni se borran a mano:** nacen de una venta a crédito y cambian de estado por sus movimientos.
