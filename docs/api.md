@@ -134,3 +134,20 @@ Cada ficha devuelve `id`, `customer` (`{ id, name }`), `status`, `openedAt`, `du
 Además cada ficha devuelve: `pendingSurcharges` (recargos que ya corresponden pero no se registraron: `monthNumber`, `base`, `percent`, `amount`, `chargedOn`; solo se muestran, **no se guardan** hasta aplicarlos o pagar), `pendingSurchargesTotal`, `payable` (saldo + recargos pendientes, lo que habría que pagar hoy), `surcharges` (los registrados, con `registeredAt`) y `payments` (`id`, `amount`, `paymentMethod`, `note`, `createdAt`, `userName`). El `balance` es el saldo **registrado** (ventas − anuladas + recargos registrados − pagos).
 
 Pagos (D18): `amount` es un importe mayor que cero con hasta 2 decimales (texto o número) y `paymentMethod` uno de `CASH`, `TRANSFER`, `CARD`, `DIGITAL_WALLET`. El pago no puede superar el saldo incluyendo los recargos que ya corresponden: si lo supera responde 409 con el saldo actual y no se guarda nada. Un pago parcial **no cambia** `dueDate`. Si el saldo llega a cero, la ficha pasa a `CANCELLED`. Pagar o aplicar recargos en una ficha cancelada responde 409. Quién registra sale de la sesión.
+
+
+## Reportes
+
+Requieren sesión (401 si no hay). Son de solo lectura y se calculan al momento (D19).
+
+| Método y ruta | Qué hace | Respuestas |
+|---|---|---|
+| `GET /reports/sales` | Ventas del período. Filtros opcionales: `from` y `to` (`AAAA-MM-DD`, días de Argentina, inclusivos; por defecto los últimos 30 días hasta hoy; máximo 366 días) | 200, 400 |
+| `GET /reports/debt` | Deuda de clientes: las cuentas pendientes de mayor a menor monto a pagar | 200 |
+
+`GET /reports/sales` devuelve `from`, `to`, `totals` (`count`, `total`, `average`), `byDay` (todos los días del rango: `date`, `count`, `total`), `byPaymentMethod` (`method` es `CASH`, `TRANSFER`, `CARD`, `DIGITAL_WALLET` u `ON_CREDIT` para las ventas a crédito; solo los que tuvieron ventas) y `topProducts` (hasta 10: `productId`, `productName`, `quantity`, `total` antes del descuento). Solo cuentan ventas confirmadas. Importes como texto con 2 decimales.
+
+`GET /reports/debt` devuelve `totalBalance`, `totalPayable` y `accounts` (`accountId`, `customer`, `balance`, `payable`, `dueDate`, `overdue`, `monthsOverdue`).
+
+El stock bajo se obtiene con `GET /products?lowStock=true`.
+

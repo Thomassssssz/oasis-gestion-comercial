@@ -183,3 +183,17 @@ Lo confirmado por el comercio: venta rápida (productos, cantidades, total y med
 - **k) Anular una venta a crédito con pagos hechos:** se rechaza si el saldo quedaría negativo (el cliente ya pagó más de lo que quedaría debiendo). Los recargos ya registrados **no se borran** al anular una venta (no se recalcula el pasado).
 - **l) Reabrir una ficha cancelada:** sigue sin definirse (a confirmar). Hoy no se reabre: una compra a crédito nueva abre otra ficha (D17-g).
 
+
+## D19 – Reportes y estadísticas
+
+No hay reglas de negocio confirmadas sobre qué reportes quieren los propietarios: lo siguiente son **propuestas de Claude, a confirmar**. Los reportes son de solo lectura, se calculan al momento y **no agregan tablas** (3FN: no se guarda ningún dato derivado).
+
+- **a) Qué reportes (propuesta):** ventas por día, ventas por medio de pago, productos más vendidos (top 10), productos con stock bajo y deuda de clientes. No hay reportes de costos ni de compras (D15).
+- **b) Qué cuenta como venta (propuesta):** solo las ventas **confirmadas**; las anuladas no suman. Una venta a crédito cuenta el **día en que se hizo** (aparece como "A crédito" en el medio de pago); cuándo se cobra se ve en Cuentas corrientes. Los pagos de cuenta corriente no se suman como ventas para no contarlas dos veces.
+- **c) Días en hora de Argentina (propuesta):** los días del reporte son días locales (UTC-3, sin horario de verano). Una venta a las 23:30 de Formosa cuenta para ese día aunque en UTC ya sea el siguiente. Si algún día el comercio cambiara de huso, hay una sola constante para cambiar (`helpers/report-dates.ts`).
+- **d) Rango (propuesta):** desde y hasta inclusivos; por defecto, los últimos 30 días hasta hoy; máximo 366 días. Se muestran todos los días del rango, aunque no hayan tenido ventas.
+- **e) Totales:** total vendido, cantidad de ventas y ticket promedio (total ÷ ventas, redondeado a 2 decimales).
+- **f) Más vendidos (propuesta):** ordenados por unidades; si empatan, por importe y luego por nombre. El importe de un producto es cantidad × precio de lista **de esa venta, antes del descuento** (el descuento es de toda la venta y no se prorratea, D17-c), por eso la suma de los productos puede superar el total vendido.
+- **g) Stock bajo:** reutiliza el filtro `lowStock` de productos (alerta de stock mínimo, D5).
+- **h) Deuda de clientes (propuesta):** las fichas pendientes de mayor a menor monto **a pagar hoy** (saldo + recargos que ya corresponden). Los totales separan saldo registrado y monto a pagar.
+
