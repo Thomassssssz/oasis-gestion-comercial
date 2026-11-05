@@ -103,3 +103,18 @@ Requieren sesión (401 si no hay). Cada cliente tiene su ficha individual (D14).
 No hay `DELETE`: un cliente se da de baja con `"active": false` y se reactiva con `"active": true`, para no perder su historial. Un `PUT` reemplaza la ficha completa: los datos opcionales que no se envían quedan vacíos.
 
 Reglas: el nombre es obligatorio (hasta 150 caracteres) y puede repetirse. El DNI es opcional, tiene 7 u 8 dígitos y se acepta con puntos o espacios (`30.123.456`), pero se guarda y devuelve solo con dígitos; si ya lo tiene otro cliente responde 409. El teléfono es opcional: números, espacios, `+`, `-` y paréntesis, de 6 a 30 caracteres. La dirección admite hasta 200 caracteres y las observaciones hasta 500. Un texto opcional enviado vacío o con solo espacios se guarda como sin dato (`null`). Al crear, `creditAuthorized` es `false` por defecto y el cliente siempre nace activo.
+
+## Proveedores
+
+Requieren sesión (401 si no hay). Solo la ficha del proveedor: las compras no se registran en el sistema (D15-f).
+
+| Método y ruta | Qué hace | Respuestas |
+|---|---|---|
+| `GET /suppliers` | Lista ordenada por nombre. Filtros opcionales: `search` (busca en nombre, email y teléfono, sin distinguir mayúsculas en nombre y email), `active` (`true` o `false`) | 200, 400 |
+| `GET /suppliers/:id` | Devuelve una ficha | 200, 400, 404 |
+| `POST /suppliers` | Crea un proveedor. Cuerpo: `{ "name", "phone", "email", "address", "notes" }` (solo `name` es obligatorio) | 201, 400, 409 |
+| `PUT /suppliers/:id` | Cambia todos los datos. Cuerpo: igual que al crear, más `"active": true/false` | 200, 400, 404, 409 |
+
+No hay `DELETE`: un proveedor se da de baja con `"active": false` y se reactiva con `"active": true`. Un `PUT` reemplaza la ficha completa: los datos opcionales que no se envían quedan vacíos.
+
+Reglas: el nombre es obligatorio (hasta 150 caracteres) y **no puede repetirse** (409; se ignoran los espacios de más). El email es opcional y tiene que tener formato válido (hasta 254 caracteres). El teléfono es opcional: números, espacios, `+`, `-` y paréntesis, de 6 a 30 caracteres. La dirección admite hasta 200 caracteres y las observaciones hasta 500. Un texto opcional enviado vacío o con solo espacios se guarda como sin dato (`null`). Al crear, el proveedor siempre nace activo.

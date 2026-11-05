@@ -1,14 +1,5 @@
 import { z } from "zod";
-
-// Un texto opcional: se recortan los espacios y, si queda vacío, se trata como "sin dato" (null).
-const optionalText = (label: string, max: number) =>
-  z
-    .string({ error: `${label} no es válido` })
-    .trim()
-    .max(max, `${label} puede tener hasta ${max} caracteres`)
-    .transform((value) => (value === "" ? null : value))
-    .nullish()
-    .transform((value) => value ?? null);
+import { optionalText, phoneSchema } from "./common.validator.js";
 
 // El DNI se escribe con o sin puntos ("30.123.456") y se guarda solo con dígitos. Tiene 7 u 8 dígitos (D14-d).
 // Primero se limpia (sin puntos ni espacios; si queda vacío es "sin dato") y recién después se valida el formato.
@@ -19,20 +10,6 @@ const dniSchema = z
   .nullish()
   .transform((value) => value ?? null)
   .pipe(z.string().regex(/^\d{7,8}$/, "El DNI debe tener 7 u 8 dígitos").nullable());
-
-// Teléfono libre con formato básico (D14-f): dígitos, espacios, +, -, y paréntesis. Mismo orden: limpiar y después validar.
-const phoneSchema = z
-  .string({ error: "El teléfono no es válido" })
-  .trim()
-  .transform((value) => (value === "" ? null : value))
-  .nullish()
-  .transform((value) => value ?? null)
-  .pipe(
-    z
-      .string()
-      .regex(/^[0-9+()\s-]{6,30}$/, "El teléfono solo puede tener números, espacios, +, - y paréntesis (de 6 a 30 caracteres)")
-      .nullable(),
-  );
 
 // Datos para crear un cliente. Solo el nombre es obligatorio (D14-a). Por defecto no tiene crédito autorizado (D14-b).
 export const customerInputSchema = z.object({
