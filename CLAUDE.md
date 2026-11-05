@@ -31,7 +31,8 @@ Además: `config/` (variables de entorno, cliente de Prisma), `helpers/` (funcio
 Las tablas ("models") se definen en `backend/prisma/schema.prisma`. Las pruebas van todas juntas en `backend/tests/`.
 
 Frontend (`frontend/src/`): `pages/` (una pantalla por sección), `components/` (piezas reutilizables; `ui/` es shadcn/ui, `layout/` la estructura de la pantalla),
-`services/` (llamadas a la API), `types/`, `utils/`, `lib/` (utilidades de shadcn/ui). Las pruebas del frontend van junto al archivo que prueban (`*.test.tsx`).
+`context/` (estado compartido, hoy la sesión: `AuthProvider` y `useAuth`), `routes/` (`AppRoutes.tsx`: qué dirección muestra qué pantalla; lo que está bajo `ProtectedRoute` exige sesión),
+`services/` (llamadas a la API), `types/`, `utils/`, `lib/` (utilidades de shadcn/ui). El `BrowserRouter` está en `main.tsx`; las pruebas usan `MemoryRouter`. Las pruebas del frontend van junto al archivo que prueban (`*.test.tsx`).
 
 Son dos proyectos npm independientes (cada uno con su `package.json`). Gestor de paquetes: **npm**.
 El backend usa ESM con `module: NodeNext`: los imports relativos llevan extensión `.js` (por ejemplo `import { x } from "./x.js"`), aunque el archivo sea `.ts`.
@@ -41,7 +42,7 @@ PostgreSQL de desarrollo en Docker (`docker-compose.yml`, solo la base de datos)
 
 ## Stack acordado
 
-React, Vite, TypeScript, Node.js, Express, PostgreSQL, Prisma, Tailwind CSS, shadcn/ui, Zod, Recharts, Lucide, Vitest, Supertest, Git + GitHub. API REST.
+React, React Router (`react-router-dom`, aprobado por el autor, ver D11), Vite, TypeScript, Node.js, Express, PostgreSQL, Prisma, Tailwind CSS, shadcn/ui, Zod, Recharts, Lucide, Vitest, Supertest, Git + GitHub. API REST.
 Hosting previsto (aún sin configurar): Render y Neon en planes gratuitos. Antes de usar datos reales hay que evaluar backups, seguridad, disponibilidad y límites de esos planes.
 Los montos se guardan como `Decimal`, nunca como `float`.
 

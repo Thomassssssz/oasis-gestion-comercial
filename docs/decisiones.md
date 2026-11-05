@@ -76,3 +76,11 @@ Esta decisión de diseño la propuso Claude y no fue elegida entre opciones por 
 - **Alternativas descartadas:** dejar el backend por módulo (`src/modules/<nombre>/`) y una versión más corta del backend sin repositorios.
 - **Costo conocido:** agregar un módulo nuevo toca varias carpetas (un archivo en cada una), en vez de una sola.
 
+
+## D11 – El frontend usa react-router-dom para las pantallas y el login
+
+- **Decisión:** se agrega `react-router-dom` al frontend. Cada sección tiene su propia dirección (`/login`, `/productos`, `/categorias`) y las pantallas con datos solo se muestran si hay una sesión abierta.
+- **Por qué:** hace falta una pantalla de login y que todo lo demás quede protegido; con direcciones reales se puede recargar la página sin perder el lugar y las pantallas protegidas se resuelven en un solo lugar (`routes/AppRoutes.tsx`). SITGI usa la misma librería.
+- **Cómo funciona:** al abrir la app, `AuthProvider` le pregunta a la API quién tiene la sesión abierta (`GET /api/auth/me`). Si no hay sesión, `ProtectedRoute` manda a `/login`. Si en cualquier momento la API responde 401 (por ejemplo, la sesión venció a las 12 horas), la app vuelve sola al login.
+- **Alternativa descartada:** seguir con el estado interno `Section` y un login que reemplace toda la pantalla (no se podía abrir ni recargar una sección concreta).
+- **Límite conocido:** el frontend no guarda la sesión: la guarda el navegador en la cookie `HttpOnly` que entrega el servidor (ver D9). Cambiar la contraseña desde la pantalla todavía no existe (la API sí lo permite).

@@ -40,6 +40,8 @@ backend/
 frontend/src/
   pages/           una pantalla por sección
   components/      piezas reutilizables (ui/ = shadcn/ui, layout/ = estructura)
+  context/         estado compartido de toda la app (la sesión del usuario)
+  routes/          qué dirección muestra qué pantalla
   services/        llamadas a la API
   types/           tipos de TypeScript
   utils/           funciones auxiliares
@@ -47,7 +49,7 @@ frontend/src/
 
 ## Tecnologías
 
-React, Vite, TypeScript, Node.js, Express, PostgreSQL, Prisma, Tailwind CSS, shadcn/ui, Zod, Recharts, Lucide, Vitest y Supertest.
+React, React Router, Vite, TypeScript, Node.js, Express, PostgreSQL, Prisma, Tailwind CSS, shadcn/ui, Zod, Recharts, Lucide, Vitest y Supertest.
 
 ## Base de datos de desarrollo
 
@@ -103,7 +105,7 @@ npm install
 npm run dev
 ```
 
-Abrí http://localhost:5173. Arriba a la derecha se ve "API conectada" si el backend responde, o "Sin conexión con la API" (con un botón para reintentar) si no. Hoy hay dos pantallas: **Productos** (lista con búsqueda y filtros, alta, edición y baja) y **Categorías** (alta, edición y borrado). Para que funcionen, el backend tiene que estar conectado a la base (ver la sección anterior).
+Abrí http://localhost:5173. Primero aparece el **login**: entrá con el usuario que creaste con `npm run user:create` (ver la sección anterior). Una vez adentro, arriba a la derecha se ve "API conectada" si el backend responde, o "Sin conexión con la API" (con un botón para reintentar) si no, junto con tu nombre y el botón **Salir**. Hoy hay dos pantallas: **Productos** (`/productos`: lista con búsqueda y filtros, alta, edición y baja) y **Categorías** (`/categorias`: alta, edición y borrado). Si la sesión vence (dura 12 horas), la app vuelve sola al login. Para que todo funcione, el backend tiene que estar conectado a la base (ver la sección anterior).
 Los estilos se escriben con clases de Tailwind CSS (v4, integrado a Vite con `@tailwindcss/vite`), directamente en los componentes.
 Los componentes de interfaz siguen la convención de shadcn/ui: viven en `src/components/ui/` y se importan con el atajo `@/` (por ejemplo `@/components/ui/button`). Para agregar otro componente se puede usar `npx shadcn@latest add <nombre>`; `components.json` ya está configurado. Los íconos son de Lucide.
 Vite redirige los pedidos que empiezan con `/api` hacia http://localhost:3000, por eso no hace falta configurar CORS en desarrollo.
@@ -117,7 +119,7 @@ Comandos útiles (siempre dentro de `frontend/`):
 
 ## Estado
 
-En construcción, por módulos. Hecho: estructura inicial, base de datos de desarrollo, API con endpoint de salud, y el módulo 1 (Productos y categorías) completo, con su API, su pantalla y pruebas. Los demás módulos se agregan de a uno; las decisiones de diseño están en `docs/decisiones.md`.
+En construcción, por módulos. Hecho: estructura inicial, base de datos de desarrollo, API con endpoint de salud, el módulo 1 (Productos y categorías) completo, y el login (usuarios, sesiones, pantalla de ingreso y rutas protegidas), todo con pruebas. Los demás módulos se agregan de a uno; las decisiones de diseño están en `docs/decisiones.md`.
 Las instrucciones para ejecutar el resto del proyecto se agregarán a medida que existan.
 
 ## Seguridad
