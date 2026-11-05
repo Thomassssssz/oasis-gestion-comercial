@@ -88,19 +88,21 @@ const api = (accounts: object[], extra: Record<string, () => unknown> = {}, cash
 afterEach(() => vi.restoreAllMocks())
 
 describe('CustomerFichaPage: datos del cliente', () => {
-  it('muestra los datos del cliente como en la ficha formal', async () => {
+  it('muestra los datos del cliente: en el remito su nombre y domicilio, y aparte DNI, teléfono, crédito y observaciones', async () => {
     api([])
     render()
 
     expect(await screen.findByRole('heading', { name: 'María Gómez' })).toBeInTheDocument()
-    expect(screen.getByText('España 123')).toBeInTheDocument()
+    const remito = screen.getByTestId('remito')
+    expect(within(remito).getByText('María Gómez')).toBeInTheDocument()
+    expect(within(remito).getByText('España 123')).toBeInTheDocument()
     expect(screen.getByText('30123456')).toBeInTheDocument()
     expect(screen.getByText('370 4123456')).toBeInTheDocument()
-    expect(screen.getByText('Contado o cuenta corriente')).toBeInTheDocument()
+    expect(screen.getByText('Autorizado a comprar a cuenta corriente')).toBeInTheDocument()
     expect(screen.getByText('Paga los viernes')).toBeInTheDocument()
   })
 
-  it('un cliente sin crédito figura como "Contado" y lo que falta se ve como guion', async () => {
+  it('un cliente sin crédito figura como "Solo contado", sin observaciones, y avisa que no puede tener ficha', async () => {
     mockApi({
       'GET /api/customers/5': () => ({ ...maria, creditAuthorized: false, dni: null, address: null, phone: null, notes: null }),
       'GET /api/accounts': () => [],
@@ -109,8 +111,8 @@ describe('CustomerFichaPage: datos del cliente', () => {
     render()
 
     await screen.findByRole('heading', { name: 'María Gómez' })
-    expect(screen.getByText('Contado')).toBeInTheDocument()
-    expect(screen.getAllByText('—')).toHaveLength(3)
+    expect(screen.getByText('Solo contado')).toBeInTheDocument()
+    expect(screen.getAllByText('—')).toHaveLength(2) // DNI y teléfono
     expect(screen.queryByText('Observaciones:')).not.toBeInTheDocument()
     expect(screen.getByText(/no está autorizado a comprar a crédito/)).toBeInTheDocument()
   })
@@ -206,6 +208,26 @@ describe('CustomerFichaPage: ficha de cuenta corriente', () => {
     expect(await screen.findByText(/No tiene una ficha abierta. Se abre con la primera venta a crédito./)).toBeInTheDocument()
   })
 
+  it('el remito tilda "Cuenta Corriente" solo si hay una ficha abierta', async () => {
+    api([ficha(3)])
+    const { unmount } = render()
+    expect(await screen.findByRole('img', { name: 'Cuenta Corriente: tildado' })).toBeInTheDocument()
+    unmount()
+
+    api([])
+    render()
+    expect(await screen.findByRole('img', { name: 'Cuenta Corriente: sin tildar' })).toBeInTheDocument()
+  })
+
+  it('sin ficha abierta igual muestra el remito con la grilla vacía, listo para imprimir en blanco', async () => {
+    api([])
+    render()
+
+    const remito = await screen.findByTestId('remito')
+    expect(within(remito).getAllByRole('row', { hidden: true })).toHaveLength(13)
+    expect(screen.getByTestId('remito-total')).toHaveTextContent(/\$\s?0,00/)
+  })
+
   it('muestra los artículos con cantidad, detalle, precio unitario y total de cada línea', async () => {
     api([ficha(3)])
     render()
@@ -219,17 +241,16 @@ describe('CustomerFichaPage: ficha de cuenta corriente', () => {
     expect(otra).toHaveTextContent(/\$\s?50,00/)
   })
 
-  it('el descuento va en su propia línea y el total de las ventas lo descuenta', async () => {
+  it('el descuento va en su propia línea y el TOTAL del remito lo descuenta', async () => {
     api([ficha(3)])
     render()
 
     const descuento = (await screen.findByText('Descuento')).closest('tr')!
     expect(descuento).toHaveTextContent(/−\s*\$\s?10,00/)
-    const total = screen.getByText('Total de las ventas').closest('tr')!
-    expect(total).toHaveTextContent(/\$\s?450,00/) // 350 + 100
+    expect(screen.getByTestId('remito-total')).toHaveTextContent(/\$\s?450,00/) // 350 + 100
   })
 
-  it('una venta anulada se ve tachada y no suma al total', async () => {
+  it('una venta anulada no figura en el remito ni suma al total, pero se avisa aparte', async () => {
     api([
       ficha(3, {
         sales: [
@@ -240,11 +261,18 @@ describe('CustomerFichaPage: ficha de cuenta corriente', () => {
     ])
     render()
 
-    const carpeta = (await screen.findByText('Carpeta')).closest('tr')!
-    expect(carpeta).toHaveClass('line-through')
-    expect(screen.getByText(/anulada: no suma al total/)).toBeInTheDocument()
-    expect(screen.getByText('Total de las ventas').closest('tr')).toHaveTextContent(/\$\s?350,00/)
-    expect(screen.getByText('Cuaderno rayado').closest('tr')).not.toHaveClass('line-through')
+    await screen.findByText('Cuaderno rayado')
+    expect(within(screen.getByTestId('remito')).queryByText('Carpeta')).not.toBeInTheDocument()
+    expect(screen.getByTestId('remito-total')).toHaveTextContent(/\$\s?350,00/)
+    expect(screen.getByText(/Ventas anuladas \(no figuran en el remito\)/)).toHaveTextContent(/#2 del 12\/3\/26 por \$\s?110,00/)
+  })
+
+  it('sin ventas anuladas no muestra ese aviso', async () => {
+    api([ficha(3)])
+    render()
+
+    await screen.findByText('Cuaderno rayado')
+    expect(screen.queryByText(/Ventas anuladas/)).not.toBeInTheDocument()
   })
 
   it('muestra desde cuándo, el vencimiento y "Al día"', async () => {

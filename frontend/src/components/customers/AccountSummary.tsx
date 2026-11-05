@@ -1,5 +1,4 @@
 import AccountActions from '@/components/accounts/AccountActions'
-import ArticlesTable from '@/components/customers/ArticlesTable'
 import type { CreditAccount } from '@/types/account.types'
 import { dateTime, peso } from '@/utils/format'
 import { paymentMethodLabels } from '@/utils/sale-labels'
@@ -11,9 +10,9 @@ type Props = {
 
 const day = new Intl.DateTimeFormat('es-AR', { dateStyle: 'short' })
 
-// Una ficha de cuenta corriente con el formato del remito: los artículos con su precio y total, los recargos, los pagos y el saldo.
-// El saldo y la mora los calcula el servidor (D17, D18); acá solo se muestran.
-export default function AccountSheet({ account, onChanged }: Props) {
+// Estado de una ficha de cuenta corriente: desde cuándo y hasta cuándo, los recargos, los pagos y el saldo.
+// Los artículos van en el remito (o en una tabla, en el historial). El saldo y la mora los calcula el servidor (D17, D18).
+export default function AccountSummary({ account, onChanged }: Props) {
   const open = account.status === 'OPEN'
 
   return (
@@ -40,8 +39,6 @@ export default function AccountSheet({ account, onChanged }: Props) {
             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">Al día</span>
           ))}
       </p>
-
-      <ArticlesTable sales={account.sales} totalLabel="Total de las ventas" />
 
       {account.surcharges.length > 0 && (
         <section>
