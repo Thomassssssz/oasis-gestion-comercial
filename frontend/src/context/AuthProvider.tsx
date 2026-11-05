@@ -45,11 +45,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     try {
       await logoutRequest()
-    } finally {
-      // Aunque falle el pedido, en esta pantalla se sale igual.
-      setUser(null)
-      setStatus('anonymous')
+    } catch {
+      // Si el pedido falla (por ejemplo, sin conexión), igual se sale de esta pantalla:
+      // la sesión del servidor vence sola a las 12 horas.
     }
+    setUser(null)
+    setStatus('anonymous')
   }, [])
 
   const value = useMemo(() => ({ user, status, login, logout }), [user, status, login, logout])
