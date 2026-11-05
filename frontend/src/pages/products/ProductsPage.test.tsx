@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { mockApi } from '@/test/mock-api'
@@ -17,9 +17,36 @@ const cuaderno = {
   salePrice: '1500.50',
   minStock: 5,
   active: true,
+  stock: 12,
+  lowStock: false,
 }
 
 describe('ProductsPage', () => {
+  it('muestra el stock de cada producto y marca "Stock bajo" solo a los que están en alerta', async () => {
+    const lapiz = { ...cuaderno, id: 11, name: 'Lápiz negro', stock: 3, lowStock: true }
+    mockApi({ 'GET /api/categories': () => categorias, 'GET /api/products': () => [cuaderno, lapiz] })
+    render(<ProductsPage />)
+
+    const filaCuaderno = (await screen.findByText('Cuaderno A4')).closest('tr')!
+    const filaLapiz = screen.getByText('Lápiz negro').closest('tr')!
+    expect(filaCuaderno).toHaveTextContent('12')
+    expect(within(filaCuaderno).queryByText('Stock bajo')).not.toBeInTheDocument()
+    expect(filaLapiz).toHaveTextContent('3')
+    expect(within(filaLapiz).getByText('Stock bajo')).toBeInTheDocument()
+  })
+
+  it('no pide solo el stock bajo por defecto, y lo pide al marcar "Solo con stock bajo"', async () => {
+    const { calls } = mockApi({ 'GET /api/categories': () => categorias, 'GET /api/products': () => [] })
+    const user = userEvent.setup()
+    render(<ProductsPage />)
+    await screen.findByText('No hay productos que coincidan.')
+    expect(calls.find((c) => c.path === '/api/products')?.query.has('lowStock')).toBe(false)
+
+    await user.click(screen.getByLabelText('Solo con stock bajo'))
+
+    await waitFor(() => expect(calls.filter((c) => c.path === '/api/products').at(-1)!.query.get('lowStock')).toBe('true'))
+  })
+
   it('muestra los productos con su categoría, precio en pesos y estado', async () => {
     mockApi({ 'GET /api/categories': () => categorias, 'GET /api/products': () => [cuaderno] })
     render(<ProductsPage />)

@@ -13,7 +13,7 @@ import ProductForm from '@/components/products/ProductForm'
 const peso = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' })
 
 export default function ProductsPage() {
-  const [filters, setFilters] = useState<ProductFilters>({ search: '', categoryId: '', status: 'active' })
+  const [filters, setFilters] = useState<ProductFilters>({ search: '', categoryId: '', status: 'active', lowStockOnly: false })
   const [products, setProducts] = useState<Product[] | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -87,7 +87,7 @@ export default function ProductsPage() {
         />
       )}
 
-      <div className="mb-4 grid gap-2 sm:grid-cols-3">
+      <div className="mb-4 grid items-center gap-2 sm:grid-cols-4">
         <Input
           aria-label="Buscar producto"
           placeholder="Buscar por nombre"
@@ -115,6 +115,14 @@ export default function ProductsPage() {
           <option value="inactive">Dados de baja</option>
           <option value="all">Todos</option>
         </Select>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={filters.lowStockOnly}
+            onChange={(e) => setFilters({ ...filters, lowStockOnly: e.target.checked })}
+          />
+          Solo con stock bajo
+        </label>
       </div>
 
       {error && (
@@ -134,6 +142,7 @@ export default function ProductsPage() {
                 <th className="px-3 py-2 font-medium">Nombre</th>
                 <th className="px-3 py-2 font-medium">Categoría</th>
                 <th className="px-3 py-2 text-right font-medium">Precio</th>
+                <th className="px-3 py-2 text-right font-medium">Stock</th>
                 <th className="px-3 py-2 text-right font-medium">Stock mín.</th>
                 <th className="px-3 py-2 font-medium">Estado</th>
                 <th className="px-3 py-2" />
@@ -145,6 +154,16 @@ export default function ProductsPage() {
                   <td className="px-3 py-2">{product.name}</td>
                   <td className="px-3 py-2">{product.category.name}</td>
                   <td className="px-3 py-2 text-right">{peso.format(Number(product.salePrice))}</td>
+                  <td className="px-3 py-2 text-right">
+                    <span className="inline-flex items-center justify-end gap-2">
+                      {product.lowStock && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                          Stock bajo
+                        </span>
+                      )}
+                      {product.stock}
+                    </span>
+                  </td>
                   <td className="px-3 py-2 text-right">{product.minStock}</td>
                   <td className="px-3 py-2">{product.active ? 'Activo' : 'De baja'}</td>
                   <td className="px-3 py-2">
