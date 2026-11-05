@@ -1,4 +1,4 @@
-import { BarChart3, Boxes, ScrollText, Package, PanelLeftClose, PanelLeftOpen, Settings, ShoppingCart, Tags, Users, Wallet, X, type LucideIcon } from 'lucide-react'
+import { BarChart3, Boxes, Package, PanelLeftClose, PanelLeftOpen, Settings, ShoppingCart, Tags, Users, X, type LucideIcon } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -10,9 +10,7 @@ const sections: { to: string; label: string; icon: LucideIcon }[] = [
   { to: '/inventario', label: 'Inventario', icon: Boxes },
   { to: '/ventas', label: 'Ventas', icon: ShoppingCart },
   { to: '/clientes', label: 'Clientes', icon: Users },
-  { to: '/cuentas', label: 'Cuentas corrientes', icon: Wallet },
   { to: '/reportes', label: 'Reportes', icon: BarChart3 },
-  { to: '/auditoria', label: 'Auditoría', icon: ScrollText },
   { to: '/configuracion', label: 'Configuración', icon: Settings },
 ]
 
@@ -31,7 +29,7 @@ export default function Sidebar({ collapsed, mobileOpen, onToggleCollapsed, onCl
       id="sidebar"
       data-state={mobileOpen ? 'open' : 'closed'}
       className={cn(
-        'fixed inset-y-0 left-0 z-40 flex w-56 flex-col gap-2 border-r border-border bg-white p-3 transition-transform',
+        'print:hidden fixed inset-y-0 left-0 z-40 flex w-56 flex-col gap-2 border-r border-border bg-white p-3 transition-transform',
         'md:sticky md:top-0 md:h-screen md:shrink-0 md:translate-x-0 md:transition-[width]',
         mobileOpen ? 'translate-x-0' : 'max-md:invisible max-md:-translate-x-full',
         collapsed && 'md:w-16',

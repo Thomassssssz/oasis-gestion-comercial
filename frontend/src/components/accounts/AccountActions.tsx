@@ -6,19 +6,18 @@ import { applySurcharges, payAccount } from '@/services/accounts/account.service
 import type { CreditAccount } from '@/types/account.types'
 import type { PaymentMethod } from '@/types/sale.types'
 import { describeError } from '@/utils/errors'
-import { dateTime, peso } from '@/utils/format'
+import { peso } from '@/utils/format'
 import { paymentMethodLabels } from '@/utils/sale-labels'
 
 type Props = {
   account: CreditAccount
-  onChanged: (message: string) => void // avisa que hubo un pago o recargos (la pantalla recarga y muestra el aviso)
+  onChanged: (message: string) => void // avisa que hubo un pago o recargos (la ficha recarga y muestra el aviso)
 }
 
-const day = new Intl.DateTimeFormat('es-AR', { dateStyle: 'short' })
-
-// Detalle de una ficha: ventas, pagos, recargos, y (si está abierta) registrar un pago o aplicar los recargos que ya corresponden.
+// Acciones sobre una ficha abierta: aplicar los recargos que ya corresponden y registrar un pago.
 // El saldo, los recargos y las reglas los calcula y controla la API (D18); acá solo se muestran y sus mensajes se muestran tal cual.
-export default function AccountDetail({ account, onChanged }: Props) {
+// Una ficha cancelada no ofrece ninguna acción.
+export default function AccountActions({ account, onChanged }: Props) {
   const [amount, setAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH')
   const [note, setNote] = useState('')
@@ -55,51 +54,7 @@ export default function AccountDetail({ account, onChanged }: Props) {
   }
 
   return (
-    <div className="grid gap-4 text-sm">
-      <section>
-        <h4 className="mb-1 font-semibold">Ventas</h4>
-        <ul className="grid gap-1">
-          {account.sales.map((sale) => (
-            <li key={sale.id} className={sale.status === 'ANNULLED' ? 'text-muted-foreground line-through' : undefined}>
-              Venta #{sale.id} · {dateTime.format(new Date(sale.createdAt))} · {peso.format(Number(sale.total))}
-              {sale.status === 'ANNULLED' ? ' (anulada)' : ''}
-              {sale.note ? ` · ${sale.note}` : ''}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section>
-        <h4 className="mb-1 font-semibold">Pagos</h4>
-        {account.payments.length === 0 ? (
-          <p className="text-muted-foreground">Todavía no hay pagos.</p>
-        ) : (
-          <ul className="grid gap-1">
-            {account.payments.map((payment) => (
-              <li key={payment.id}>
-                {dateTime.format(new Date(payment.createdAt))} · {peso.format(Number(payment.amount))} ·{' '}
-                {paymentMethodLabels[payment.paymentMethod]} · {payment.userName}
-                {payment.note ? ` · ${payment.note}` : ''}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {account.surcharges.length > 0 && (
-        <section>
-          <h4 className="mb-1 font-semibold">Recargos por mora registrados</h4>
-          <ul className="grid gap-1">
-            {account.surcharges.map((s) => (
-              <li key={s.monthNumber}>
-                Mes {s.monthNumber} de atraso ({day.format(new Date(s.chargedOn))}) · {peso.format(Number(s.amount))} = {Number(s.percent)}% de{' '}
-                {peso.format(Number(s.base))}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
+    <div className="grid gap-4 text-sm print:hidden">
       {open && hasPending && (
         <section className="rounded-md border border-amber-300 bg-amber-50 p-3">
           <h4 className="mb-1 font-semibold">Recargos que ya corresponden (todavía sin registrar)</h4>

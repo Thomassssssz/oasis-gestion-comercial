@@ -45,7 +45,7 @@ export default function SalesPage() {
   // Los clientes activos para la venta completa (se piden una sola vez).
   useEffect(() => {
     let ignore = false
-    listCustomers({ search: '', status: 'active', credit: 'all' })
+    listCustomers({ search: '', status: 'active', credit: 'all', debt: 'all' })
       .then((list) => {
         if (!ignore) setCustomers(list)
       })

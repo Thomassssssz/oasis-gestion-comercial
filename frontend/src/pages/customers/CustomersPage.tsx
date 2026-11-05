@@ -1,28 +1,36 @@
 import { Pencil, Plus } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import CustomerForm from '@/components/customers/CustomerForm'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
+import { listAccounts } from '@/services/accounts/account.service'
 import { listCustomers, updateCustomer } from '@/services/customers/customer.service'
+import type { CreditAccount } from '@/types/account.types'
 import type { Customer, CustomerFilters } from '@/types/customer.types'
 import { describeError } from '@/utils/errors'
+import { peso } from '@/utils/format'
 
 export default function CustomersPage() {
-  const [filters, setFilters] = useState<CustomerFilters>({ search: '', status: 'active', credit: 'all' })
+  const [filters, setFilters] = useState<CustomerFilters>({ search: '', status: 'active', credit: 'all', debt: 'all' })
   const [customers, setCustomers] = useState<Customer[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   // null = formulario cerrado, 'new' = cliente nuevo, o el cliente que se está editando.
   const [editing, setEditing] = useState<Customer | 'new' | null>(null)
   const [reload, setReload] = useState(0)
 
+  // Fichas pendientes: de ahí salen el saldo y el aviso de vencido de cada cliente. Hay una sola ficha abierta por cliente (D17).
+  const [openAccounts, setOpenAccounts] = useState<Map<number, CreditAccount> | null>(null)
+
   // La lista se vuelve a pedir cuando cambian los filtros o hay que recargar.
   useEffect(() => {
     let ignore = false
-    listCustomers(filters)
-      .then((list) => {
+    Promise.all([listCustomers(filters), listAccounts('OPEN')])
+      .then(([list, accounts]) => {
         if (!ignore) {
           setCustomers(list)
+          setOpenAccounts(new Map(accounts.map((account) => [account.customer.id, account])))
           setError(null)
         }
       })
@@ -33,6 +41,12 @@ export default function CustomersPage() {
       ignore = true
     }
   }, [filters, reload])
+
+  // "Con deuda" se filtra acá: la API de clientes no conoce las cuentas.
+  const visible = useMemo(
+    () => (customers && openAccounts && filters.debt === 'with-debt' ? customers.filter((c) => openAccounts.has(c.id)) : customers),
+    [customers, openAccounts, filters.debt],
+  )
 
   async function toggleActive(customer: Customer) {
     try {
@@ -76,7 +90,7 @@ export default function CustomersPage() {
         />
       )}
 
-      <div className="mb-4 grid items-center gap-2 sm:grid-cols-3">
+      <div className="mb-4 grid items-center gap-2 sm:grid-cols-4">
         <Input
           aria-label="Buscar cliente"
           placeholder="Buscar por nombre, DNI o teléfono"
@@ -101,6 +115,14 @@ export default function CustomersPage() {
           <option value="authorized">Con crédito autorizado</option>
           <option value="not-authorized">Sin crédito</option>
         </Select>
+        <Select
+          aria-label="Filtrar por deuda"
+          value={filters.debt}
+          onChange={(e) => setFilters({ ...filters, debt: e.target.value as CustomerFilters['debt'] })}
+        >
+          <option value="all">Con o sin deuda</option>
+          <option value="with-debt">Con deuda</option>
+        </Select>
       </div>
 
       {error && (
@@ -110,9 +132,9 @@ export default function CustomersPage() {
       )}
 
       {customers === null && !error && <p className="text-muted-foreground">Cargando…</p>}
-      {customers?.length === 0 && <p className="text-muted-foreground">No hay clientes que coincidan.</p>}
+      {visible?.length === 0 && <p className="text-muted-foreground">No hay clientes que coincidan.</p>}
 
-      {customers && customers.length > 0 && (
+      {visible && visible.length > 0 && (
         <div className="overflow-x-auto rounded-md border border-border bg-white">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-border bg-muted text-muted-foreground">
@@ -121,20 +143,26 @@ export default function CustomersPage() {
                 <th className="px-3 py-2 font-medium">DNI</th>
                 <th className="px-3 py-2 font-medium">Teléfono</th>
                 <th className="px-3 py-2 font-medium">Crédito</th>
+                <th className="px-3 py-2 text-right font-medium">Debe</th>
                 <th className="px-3 py-2 font-medium">Estado</th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {customers.map((customer) => (
+              {visible.map((customer) => (
                 <tr key={customer.id}>
                   <td className="px-3 py-2">
-                    {customer.name}
+                    <Link to={`/clientes/${customer.id}`} className="font-medium text-primary hover:underline">
+                      {customer.name}
+                    </Link>
                     {customer.notes && <p className="text-xs text-muted-foreground">{customer.notes}</p>}
                   </td>
                   <td className="px-3 py-2">{customer.dni ?? '—'}</td>
                   <td className="px-3 py-2">{customer.phone ?? '—'}</td>
                   <td className="px-3 py-2">{customer.creditAuthorized ? 'Autorizado' : 'No'}</td>
+                  <td className="px-3 py-2 text-right">
+                    <Debt account={openAccounts?.get(customer.id)} />
+                  </td>
                   <td className="px-3 py-2">{customer.active ? 'Activo' : 'De baja'}</td>
                   <td className="px-3 py-2">
                     <span className="flex justify-end gap-1">
@@ -165,3 +193,17 @@ export default function CustomersPage() {
     </section>
   )
 }
+
+// Lo que debe el cliente hoy (saldo más recargos que ya corresponden), con el aviso de vencido. Sin ficha pendiente no debe nada.
+function Debt({ account }: { account: CreditAccount | undefined }) {
+  if (!account) return <span className="text-muted-foreground">—</span>
+  return (
+    <>
+      {peso.format(Number(account.payable))}
+      {account.overdue && (
+        <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">Vencida</span>
+      )}
+    </>
+  )
+}
+

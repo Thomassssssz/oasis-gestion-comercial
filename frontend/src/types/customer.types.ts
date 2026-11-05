@@ -25,4 +25,5 @@ export type CustomerFilters = {
   search: string
   status: 'active' | 'inactive' | 'all'
   credit: 'all' | 'authorized' | 'not-authorized'
+  debt: 'all' | 'with-debt' // 'with-debt' = solo los que tienen una ficha pendiente; se filtra en la pantalla
 }

@@ -94,7 +94,7 @@ export default function MainLayout() {
           <Button
             variant="outline"
             size="sm"
-            className="mb-4 md:hidden"
+            className="mb-4 md:hidden print:hidden"
             aria-label="Abrir menú"
             aria-expanded={mobileOpen}
             aria-controls="sidebar"

@@ -14,7 +14,6 @@ const screens = {
   'GET /api/categories': () => [],
   'GET /api/customers': () => [],
   'GET /api/accounts': () => [],
-  'GET /api/audit': () => [],
   'GET /api/reports/debt': () => ({ totalBalance: '0.00', totalPayable: '0.00', accounts: [] }),
   'GET /api/reports/sales': () => ({
     from: '2026-10-06',
@@ -104,15 +103,6 @@ describe('rutas y sesión', () => {
     expect(await screen.findByRole('heading', { name: 'Configuración' })).toBeInTheDocument()
   })
 
-  it('la sección Cuentas corrientes está en el menú y lleva a su pantalla', async () => {
-    mockApi({ 'GET /api/auth/me': () => ana, ...screens })
-    renderAt('/productos')
-
-    fireEvent.click(await screen.findByRole('link', { name: 'Cuentas corrientes' }))
-
-    expect(await screen.findByRole('heading', { name: 'Cuentas corrientes' })).toBeInTheDocument()
-  })
-
   it('la sección Reportes está en el menú y lleva a su pantalla', async () => {
     mockApi({ 'GET /api/auth/me': () => ana, ...screens })
     renderAt('/productos')
@@ -122,13 +112,23 @@ describe('rutas y sesión', () => {
     expect(await screen.findByRole('heading', { name: 'Reportes' })).toBeInTheDocument()
   })
 
-  it('la sección Auditoría está en el menú y lleva a su pantalla', async () => {
+  it('la ficha de un cliente se abre en /clientes/:id', async () => {
+    mockApi({
+      'GET /api/auth/me': () => ana,
+      ...screens,
+      'GET /api/customers/7': () => ({ id: 7, name: 'María Gómez', phone: null, dni: null, address: null, notes: null, creditAuthorized: false, active: true, createdAt: '2026-03-01T12:00:00.000Z', updatedAt: '2026-03-01T12:00:00.000Z' }),
+      'GET /api/sales': () => [],
+    })
+    renderAt('/clientes/7')
+
+    expect(await screen.findByRole('heading', { name: 'María Gómez' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Clientes' })).toHaveAttribute('aria-current', 'page') // el menú sigue marcando Clientes
+  })
+
+  it('Cuentas corrientes y Auditoría ya no existen como pantallas', async () => {
     mockApi({ 'GET /api/auth/me': () => ana, ...screens })
-    renderAt('/productos')
-
-    fireEvent.click(await screen.findByRole('link', { name: 'Auditoría' }))
-
-    expect(await screen.findByRole('heading', { name: 'Auditoría' })).toBeInTheDocument()
+    renderAt('/cuentas')
+    expect(await screen.findByRole('heading', { name: 'Página no encontrada' })).toBeInTheDocument()
   })
 
   it('una dirección que no existe muestra "Página no encontrada"', async () => {

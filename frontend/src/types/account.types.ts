@@ -2,12 +2,22 @@ import type { PaymentMethod } from '@/types/sale.types'
 
 export type AccountStatus = 'OPEN' | 'CANCELLED'
 
+// Una línea de la ficha: lo que se llevó el cliente, con el precio de ese momento.
+export type AccountSaleItem = {
+  productName: string
+  quantity: number
+  unitPrice: string
+  subtotal: string
+}
+
 export type AccountSale = {
   id: number
   status: 'CONFIRMED' | 'ANNULLED'
   createdAt: string
   note: string | null
-  total: string
+  discount: string // descuento en pesos de toda la venta
+  total: string // ya con el descuento
+  items: AccountSaleItem[]
 }
 
 export type AccountPayment = {

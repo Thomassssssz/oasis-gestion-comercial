@@ -4,6 +4,9 @@ import type { AccountStatus, CreditAccount, PaymentInput } from '@/types/account
 // OPEN = cuentas pendientes; CANCELLED = historial de canceladas.
 export const listAccounts = (status: AccountStatus) => apiRequest<CreditAccount[]>(`/accounts?status=${status}`)
 
+// Todas las fichas de un cliente (pendiente y canceladas) con sus artículos, pagos y recargos.
+export const listCustomerAccounts = (customerId: number) => apiRequest<CreditAccount[]>(`/accounts?customerId=${customerId}`)
+
 // Registra un pago. La API primero registra los recargos que ya corresponden y rechaza el pago si supera el saldo.
 export const payAccount = (id: number, input: PaymentInput) =>
   apiRequest<CreditAccount>(`/accounts/${id}/payments`, { method: 'POST', body: input })

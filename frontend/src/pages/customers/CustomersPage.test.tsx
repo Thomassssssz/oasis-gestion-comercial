@@ -1,7 +1,8 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render as baseRender, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
-import { mockApi } from '@/test/mock-api'
+import { mockApi as baseMockApi } from '@/test/mock-api'
 import CustomersPage from './CustomersPage'
 
 const ana = {
@@ -17,9 +18,103 @@ const ana = {
   updatedAt: '2026-11-04T12:00:00.000Z',
 }
 
+// La lista pide también las fichas pendientes (de ahí sale lo que debe cada cliente); por defecto, ninguna.
+const mockApi = (routes: Parameters<typeof baseMockApi>[0]) => baseMockApi({ 'GET /api/accounts': () => [], ...routes })
+const render = (ui: React.ReactElement) => baseRender(<MemoryRouter>{ui}</MemoryRouter>)
+
+// Ficha pendiente de un cliente, como la devuelve la API.
+const ficha = (customerId: number, extra: object = {}) => ({
+  id: 30 + customerId,
+  customer: { id: customerId, name: 'x' },
+  status: 'OPEN',
+  balance: '450.00',
+  pendingSurchargesTotal: '0.00',
+  payable: '450.00',
+  overdue: false,
+  monthsOverdue: 0,
+  ...extra,
+})
+
 const beto = { ...ana, id: 2, name: 'Beto Díaz', phone: null, dni: null, address: null, notes: null, creditAuthorized: false }
 
 describe('CustomersPage', () => {
+  it('el nombre del cliente lleva a su ficha', async () => {
+    mockApi({ 'GET /api/customers': () => [ana] })
+    render(<CustomersPage />)
+
+    expect(await screen.findByRole('link', { name: 'Ana Pérez' })).toHaveAttribute('href', '/clientes/1')
+  })
+
+  it('muestra cuánto debe cada cliente hoy (con recargos) y un guion si no debe nada', async () => {
+    mockApi({
+      'GET /api/customers': () => [ana, beto],
+      'GET /api/accounts': () => [ficha(1, { balance: '1000.00', payable: '1050.00' })],
+    })
+    render(<CustomersPage />)
+
+    const filaAna = (await screen.findByText('Ana Pérez')).closest('tr')!
+    const filaBeto = screen.getByText('Beto Díaz').closest('tr')!
+    expect(filaAna).toHaveTextContent(/\$\s?1\.050,00/)
+    expect(within(filaAna).queryByText('Vencida')).not.toBeInTheDocument()
+    expect(within(filaBeto).getAllByText('—').length).toBeGreaterThanOrEqual(3) // DNI, teléfono y deuda
+    expect(filaBeto).not.toHaveTextContent('$')
+  })
+
+  it('avisa "Vencida" junto a la deuda cuando la ficha pasó su vencimiento', async () => {
+    mockApi({
+      'GET /api/customers': () => [ana, beto],
+      'GET /api/accounts': () => [ficha(1, { overdue: true })],
+    })
+    render(<CustomersPage />)
+
+    const filaAna = (await screen.findByText('Ana Pérez')).closest('tr')!
+    expect(within(filaAna).getByText('Vencida')).toBeInTheDocument()
+    expect(within(screen.getByText('Beto Díaz').closest('tr')!).queryByText('Vencida')).not.toBeInTheDocument()
+  })
+
+  it('pide las fichas pendientes', async () => {
+    const { calls } = mockApi({ 'GET /api/customers': () => [ana] })
+    render(<CustomersPage />)
+
+    await screen.findByText('Ana Pérez')
+    expect(calls.find((c) => c.path === '/api/accounts')!.query.get('status')).toBe('OPEN')
+  })
+
+  it('el filtro "Con deuda" deja solo a los clientes con ficha pendiente y se puede quitar', async () => {
+    mockApi({
+      'GET /api/customers': () => [ana, beto],
+      'GET /api/accounts': () => [ficha(2)],
+    })
+    const user = userEvent.setup()
+    render(<CustomersPage />)
+    await screen.findByText('Ana Pérez')
+
+    await user.selectOptions(screen.getByLabelText('Filtrar por deuda'), 'Con deuda')
+
+    await waitFor(() => expect(screen.queryByText('Ana Pérez')).not.toBeInTheDocument())
+    expect(screen.getByText('Beto Díaz')).toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('Filtrar por deuda'), 'Con o sin deuda')
+    expect(await screen.findByText('Ana Pérez')).toBeInTheDocument()
+  })
+
+  it('con "Con deuda" y nadie debiendo, lo dice', async () => {
+    mockApi({ 'GET /api/customers': () => [ana] })
+    const user = userEvent.setup()
+    render(<CustomersPage />)
+    await screen.findByText('Ana Pérez')
+
+    await user.selectOptions(screen.getByLabelText('Filtrar por deuda'), 'Con deuda')
+
+    expect(screen.getByText('No hay clientes que coincidan.')).toBeInTheDocument()
+  })
+
+  it('muestra el error si fallan las fichas pendientes', async () => {
+    mockApi({ 'GET /api/customers': () => [ana], 'GET /api/accounts': () => Response.json({ error: 'Falló' }, { status: 500 }) })
+    render(<CustomersPage />)
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+  })
+
   it('muestra los clientes con DNI, teléfono, crédito y estado; lo que falta se ve como guion', async () => {
     mockApi({ 'GET /api/customers': () => [ana, beto] })
     render(<CustomersPage />)
@@ -32,7 +127,7 @@ describe('CustomersPage', () => {
     expect(within(filaAna).getByText('Autorizado')).toBeInTheDocument()
     expect(within(filaAna).getByText('Activo')).toBeInTheDocument()
     expect(within(filaBeto).getByText('No')).toBeInTheDocument()
-    expect(within(filaBeto).getAllByText('—')).toHaveLength(2)
+    expect(within(filaBeto).getAllByText('—')).toHaveLength(3) // DNI, teléfono y deuda
   })
 
   it('pide por defecto solo los clientes activos, sin filtro de crédito', async () => {

@@ -36,19 +36,25 @@ describe('barra lateral', () => {
     await renderAt()
 
     const links = within(screen.getByRole('navigation', { name: 'Secciones' })).getAllByRole('link')
-    expect(links.map((link) => link.textContent)).toEqual(['Productos', 'Categorías', 'Inventario', 'Ventas', 'Clientes', 'Cuentas corrientes', 'Reportes', 'Auditoría', 'Configuración'])
+    expect(links.map((link) => link.textContent)).toEqual(['Productos', 'Categorías', 'Inventario', 'Ventas', 'Clientes', 'Reportes', 'Configuración'])
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
       '/productos',
       '/categorias',
       '/inventario',
       '/ventas',
       '/clientes',
-      '/cuentas',
       '/reportes',
-      '/auditoria',
       '/configuracion',
     ])
     links.forEach((link) => expect(link.querySelector('svg')).not.toBeNull())
+  })
+
+  it('no ofrece Cuentas corrientes ni Auditoría: las cuentas se ven en la ficha de cada cliente', async () => {
+    await renderAt()
+
+    const nav = within(screen.getByRole('navigation', { name: 'Secciones' }))
+    expect(nav.queryByRole('link', { name: /cuentas corrientes/i })).not.toBeInTheDocument()
+    expect(nav.queryByRole('link', { name: /auditor/i })).not.toBeInTheDocument()
   })
 
   it('no ofrece Proveedores ni Compras: no van en la app', async () => {

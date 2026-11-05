@@ -14,6 +14,8 @@ function toQueryString({ search, status, credit }: CustomerFilters) {
 export const listCustomers = (filters: CustomerFilters) =>
   apiRequest<Customer[]>(`/customers${toQueryString(filters)}`)
 
+export const getCustomer = (id: number) => apiRequest<Customer>(`/customers/${id}`)
+
 export const createCustomer = (data: CustomerFormData) =>
   apiRequest<Customer>('/customers', { method: 'POST', body: data })
 
