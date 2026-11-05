@@ -126,15 +126,11 @@ Decisiones elegidas por el autor (a, b, c) y reglas que propuso Claude (d a g). 
 - **g) Búsqueda (propuesta):** el buscador del listado mira el nombre, el DNI y el teléfono.
 - **Datos personales:** la ficha guarda datos personales (DNI, teléfono, dirección). Antes de usar datos reales hay que revisar la protección de datos personales aplicable (Ley 25.326 en Argentina) y los permisos del hosting (Render y Neon).
 
-## D15 – Proveedores, y qué pasa con las compras
+## D15 – Compras y proveedores quedan fuera de la app
 
-Decisiones elegidas por el autor (a, f) y reglas que propuso Claude (b a e). Las reglas propuestas hay que revisarlas y poder defenderlas.
-
-- **a) Datos de la ficha (autor):** nombre (obligatorio), teléfono, email, dirección y observaciones. Todos menos el nombre son opcionales. No se guarda CUIT porque el autor no lo eligió.
-- **b) Teléfono (propuesta):** mismo formato que en clientes (D14-f): dígitos, espacios, `+`, `-` y paréntesis, de 6 a 30 caracteres. El código de validación es compartido (`common.validator.ts`).
-- **c) Email (propuesta):** si se carga, tiene que tener formato de email válido y hasta 254 caracteres (el máximo de la norma). No se verifica que el correo exista.
-- **d) Búsqueda (propuesta):** el buscador del listado mira el nombre, el email y el teléfono.
-- **e) Se dan de baja, no se borran (propuesta):** igual que productos y clientes (`active = false`). **El nombre es único** (dos proveedores no pueden llamarse igual; se comparan sin espacios de más y distinguiendo mayúsculas, como las categorías). Si hiciera falta repetir un nombre, habría que agregar otro dato que los distinga (por ejemplo el CUIT).
-- **f) Las compras no se registran en el sistema (autor):** al preguntar cómo se registra una compra, el autor respondió que *"la compra a un proveedor no debe estar en la app, eso se hace de otra manera"*. Por ahora el módulo 6 se limita a la ficha de proveedores y **no se implementan compras, recepciones ni su aumento de stock**. El stock sigue entrando por *stock inicial* y *ajustes* (D12).
-  - **Pendiente de confirmar con el autor:** `CLAUDE.md` todavía lista el módulo "Compras y proveedores" y la regla confirmada *"confirmar la recepción de una compra aumenta stock"*, que no coinciden con esta decisión. No se tocaron en silencio: hay que decidir si se actualizan.
-  - También queda abierto si la ficha de proveedor se va a relacionar con algo (por ejemplo, con qué proveedor se compra cada producto). Hoy no se relaciona con ninguna tabla.
+- **Decisión (autor):** la compra a un proveedor "no debe estar en la app, eso se hace de otra manera", y la ficha de proveedores tampoco ("eso no va en la app"). Por lo tanto **no hay módulo de compras ni de proveedores**: no se registran compras, recepciones de mercadería ni proveedores.
+- **Qué cambia:**
+  - Se quitaron del `CLAUDE.md` el módulo 6 y la regla "confirmar la recepción de una compra aumenta stock". La numeración de los demás módulos no se modificó.
+  - El stock entra solo por *stock inicial* y *ajustes manuales con motivo* (D12). El motivo de ajuste "devolución a proveedor" (D7) se mantiene: es una forma de restar stock, no un registro de proveedores.
+  - Durante un momento existió una tabla `Supplier` (migración `20261104250000_suppliers`) que se eliminó con la migración `20261104260000_drop_suppliers`. No tenía relación con otras tablas y no se perdió información. Las migraciones ya aplicadas no se borran del historial; se agrega una nueva que deshace el cambio.
+- **Consecuencia para la estimación:** los reportes futuros no pueden incluir costos de compra, porque no se guardan. Si más adelante hicieran falta, hay que volver a decidirlo.

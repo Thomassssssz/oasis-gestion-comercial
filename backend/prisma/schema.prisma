@@ -162,15 +162,3 @@ model Customer {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
-
-model Supplier {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
-  phone     String?
-  email     String?
-  address   String?
-  notes     String?
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}

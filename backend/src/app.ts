@@ -11,7 +11,6 @@ import { healthRouter } from "./routes/health.routes.js";
 import { createProductRouter } from "./routes/product.routes.js";
 import { createSaleRouter } from "./routes/sale.routes.js";
 import { createStockMovementRouter } from "./routes/stock-movement.routes.js";
-import { createSupplierRouter } from "./routes/supplier.routes.js";
 import { createAuthService } from "./services/auth.service.js";
 
 // loginLimiter y now son opcionales: las pruebas los reemplazan para controlar el tiempo.
@@ -40,7 +39,6 @@ export function createApp({ prisma, loginLimiter = createLoginLimiter(), now }: 
   app.use("/api/stock-movements", requireAuth, createStockMovementRouter(prisma));
   app.use("/api/sales", requireAuth, createSaleRouter(prisma));
   app.use("/api/customers", requireAuth, createCustomerRouter(prisma));
-  app.use("/api/suppliers", requireAuth, createSupplierRouter(prisma));
 
   // Cualquier ruta que no exista responde 404 en formato JSON.
   app.use((_req, res) => {

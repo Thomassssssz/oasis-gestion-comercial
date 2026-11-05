@@ -306,22 +306,3 @@ describe("esquema: clientes", () => {
     expect(customer.creditAuthorized).toBe(false);
   });
 });
-
-describe("esquema: proveedores", () => {
-  it("no permite dos proveedores con el mismo nombre", async () => {
-    await prisma.supplier.create({ data: { name: "Papelera Sur" } });
-
-    await expect(prisma.supplier.create({ data: { name: "Papelera Sur" } })).rejects.toThrow();
-  });
-
-  it("no permite un nombre vacío o de solo espacios", async () => {
-    await expect(prisma.supplier.create({ data: { name: "" } })).rejects.toThrow();
-    await expect(prisma.supplier.create({ data: { name: "   " } })).rejects.toThrow();
-  });
-
-  it("por defecto el proveedor nace activo y sin datos de contacto", async () => {
-    const supplier = await prisma.supplier.create({ data: { name: "Papelera Sur" } });
-
-    expect(supplier).toMatchObject({ active: true, phone: null, email: null, address: null, notes: null });
-  });
-});

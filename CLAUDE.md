@@ -53,17 +53,17 @@ Los montos se guardan como `Decimal`, nunca como `float`.
 3. Ventas rápidas y completas
 4. Clientes
 5. Cuentas corrientes, pagos, vencimientos y recargos
-6. Compras y proveedores
+6. *(Sacado del sistema: las compras y los proveedores se manejan fuera de la app, ver D15)*
 7. Reportes y estadísticas
 8. Usuarios, configuración, login y auditoría
 
-Fuera de alcance: facturación electrónica/ARCA, tienda online, app móvil nativa, múltiples sucursales, RR. HH. y sueldos, integración bancaria, automatización del servicio de impresión.
+Fuera de alcance: facturación electrónica/ARCA, tienda online, app móvil nativa, múltiples sucursales, RR. HH. y sueldos, integración bancaria, automatización del servicio de impresión, compras y proveedores (D15).
 
 ## Reglas de negocio confirmadas
 
 - Todas las ventas deben registrarse. Venta rápida: productos, cantidades, total y medio de pago. Venta completa: además cliente, descuentos y casos especiales.
 - Medios de pago: efectivo, transferencia, tarjeta y billetera virtual.
-- Confirmar una venta descuenta stock. Confirmar la recepción de una compra aumenta stock.
+- Confirmar una venta descuenta stock.
 - Solo clientes autorizados compran a crédito. Cada cliente tiene su ficha individual.
 - El primer producto registrado en la ficha inicia el plazo de un mes de esa ficha. Cada cliente tiene su propio ciclo.
 - Un pago parcial reduce el saldo, pero **no reinicia ni modifica el vencimiento original**.

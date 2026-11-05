@@ -17,7 +17,7 @@ export const optionalText = (label: string, max: number) =>
     .nullish()
     .transform((value) => value ?? null);
 
-// Teléfono libre con formato básico (D14-f, D15-b): dígitos, espacios, +, -, y paréntesis.
+// Teléfono libre con formato básico (D14-f): dígitos, espacios, +, -, y paréntesis.
 // Primero se limpia (si queda vacío es "sin dato") y recién después se valida el formato.
 export const phoneSchema = z
   .string({ error: "El teléfono no es válido" })
