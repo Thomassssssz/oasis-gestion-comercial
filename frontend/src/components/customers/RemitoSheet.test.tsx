@@ -355,3 +355,42 @@ describe('RemitoSheet: tocar el pie para registrar un pago', () => {
     expect(screen.queryByRole('button', { name: 'Registrar un pago' })).not.toBeInTheDocument()
   })
 })
+
+describe('RemitoSheet: sello PAGADO', () => {
+  it('sin "paid" no hay sello', () => {
+    render(<Remito />)
+
+    expect(screen.queryByTestId('remito-paid-stamp')).not.toBeInTheDocument()
+  })
+
+  it('con "paid" el sello PAGADO queda dentro del remito, sin recibir toques', () => {
+    render(<Remito paid />)
+
+    const sello = screen.getByTestId('remito-paid-stamp')
+    expect(sello).toHaveTextContent('PAGADO')
+    expect(screen.getByTestId('remito').contains(sello)).toBe(true)
+    expect(sello.parentElement).toHaveClass('pointer-events-none')
+  })
+
+  it('el sello no tapa los campos: siguen editables', async () => {
+    render(<Remito paid />)
+
+    await userEvent.type(screen.getByLabelText('Localidad'), 'F')
+
+    expect(screen.getByLabelText('Localidad')).toHaveValue('F')
+  })
+
+  it('una ficha pagada muestra cuándo se canceló y no el vencimiento', () => {
+    render(<Remito paid closedAt="2026-03-20T10:00:00.000Z" dueDate="2026-04-10T15:00:00.000Z" />)
+
+    expect(screen.getByTestId('remito-closed')).toHaveTextContent('Cancelada el 20/3/26')
+    expect(screen.queryByTestId('remito-due')).not.toBeInTheDocument()
+  })
+
+  it('sin fecha de cancelación muestra el vencimiento', () => {
+    render(<Remito dueDate="2026-04-10T15:00:00.000Z" />)
+
+    expect(screen.getByTestId('remito-due')).toBeInTheDocument()
+    expect(screen.queryByTestId('remito-closed')).not.toBeInTheDocument()
+  })
+})

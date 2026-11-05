@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import AccountActions from '@/components/accounts/AccountActions'
 import RemitoSheet from '@/components/customers/RemitoSheet'
 import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/select'
 import { listCustomerAccounts, updateAccountRemito } from '@/services/accounts/account.service'
 import { customerData, getCustomer, updateCustomer } from '@/services/customers/customer.service'
 import { getBusinessSettings, updateBusinessSettings } from '@/services/settings/setting.service'
@@ -23,7 +24,9 @@ import {
   type RemitoValues,
 } from '@/utils/remito'
 
-type Loaded = { customer: Customer; account: CreditAccount | null; business: BusinessSettings }
+const day = new Intl.DateTimeFormat('es-AR', { dateStyle: 'short' })
+
+type Loaded = { customer: Customer; accounts: CreditAccount[]; business: BusinessSettings }
 type Edits = Partial<Record<FieldKey, string>> // lo escrito en el remito que todavía no se guardó
 
 // Ficha de un cliente: el remito "X" del comercio, y nada más. Cada dato del remito se toca y se edita;
@@ -38,6 +41,7 @@ export default function CustomerFichaPage() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [showPay, setShowPay] = useState(false)
+  const [selectedId, setSelectedId] = useState<number | null>(null) // ficha elegida a mano; null = la abierta o, si no hay, la última pagada
   const [reload, setReload] = useState(0)
   // La fecha del remito es la de hoy y se puede cambiar, pero no se guarda: la hoja de papel la lleva a mano.
   const [date, setDate] = useState(() => {
@@ -50,7 +54,7 @@ export default function CustomerFichaPage() {
     Promise.all([getCustomer(customerId), listCustomerAccounts(customerId), getBusinessSettings()])
       .then(([customer, accounts, business]) => {
         if (!ignore) {
-          setData({ customer, account: accounts.find((a) => a.status === 'OPEN') ?? null, business })
+          setData({ customer, accounts, business })
           setError(null)
         }
       })
@@ -62,21 +66,29 @@ export default function CustomerFichaPage() {
     }
   }, [customerId, reload])
 
-  const saved = useMemo(() => (data ? serverValues(data.customer, data.account, data.business) : null), [data])
+  // Las fichas del cliente: la pendiente primero y después las pagadas, la última pagada arriba.
+  const accounts = useMemo(
+    () =>
+      [...(data?.accounts ?? [])].sort(
+        (a, b) =>
+          Number(b.status === 'OPEN') - Number(a.status === 'OPEN') || new Date(b.closedAt ?? 0).getTime() - new Date(a.closedAt ?? 0).getTime() || b.id - a.id,
+      ),
+    [data],
+  )
+  const account = accounts.find((a) => a.id === selectedId) ?? accounts[0] ?? null
+  const saved = useMemo(() => (data ? serverValues(data.customer, account, data.business) : null), [data, account])
   const values = useMemo(() => (saved ? ({ ...saved, ...edits } as RemitoValues) : null), [saved, edits])
   // Un campo está "cambiado" si lo escrito es distinto de lo guardado (sin contar espacios sobrantes ni guiones del CUIT).
-  // Los números del remito pertenecen a la ficha abierta: si ya no hay (se canceló con un pago), lo escrito ahí no se puede guardar y no cuenta.
-  const hasAccount = data?.account != null
+  // Los números del remito pertenecen a la ficha que se está viendo; si se cambia de ficha, lo escrito ahí se descarta.
   const changed = useMemo(() => {
     const keys = new Set<FieldKey>()
     if (saved) {
       for (const key of Object.keys(edits) as FieldKey[]) {
-        if (!hasAccount && (ACCOUNT_KEYS as readonly FieldKey[]).includes(key)) continue
         if (normalizeValue(key, edits[key] ?? '') !== normalizeValue(key, saved[key])) keys.add(key)
       }
     }
     return keys
-  }, [saved, edits, hasAccount])
+  }, [saved, edits])
 
   const back = (
     <Link to="/clientes" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:underline print:hidden">
@@ -97,8 +109,9 @@ export default function CustomerFichaPage() {
   }
   if (!data || !values) return <p className="text-muted-foreground">Cargando…</p>
 
-  const { customer, account, business } = data
+  const { customer, business } = data
   const remito = buildRemito(account)
+  const paid = account?.status === 'CANCELLED'
 
   function setField(key: FieldKey, value: string) {
     setNotice(null)
@@ -214,6 +227,29 @@ export default function CustomerFichaPage() {
         </p>
       )}
 
+      {/* Si el cliente tiene más de una ficha (una pendiente y otras ya pagadas) se elige cuál ver. */}
+      {accounts.length > 1 && account && (
+        <label className="mx-auto flex w-full max-w-3xl items-center gap-2 text-sm print:hidden">
+          Ficha
+          <Select
+            className="max-w-sm"
+            value={String(account.id)}
+            onChange={(e) => {
+              // Los números del remito escritos y sin guardar eran de la ficha anterior: no se llevan a la otra.
+              setEdits((previous) => Object.fromEntries(Object.entries(previous).filter(([key]) => !(ACCOUNT_KEYS as readonly string[]).includes(key))))
+              setSelectedId(Number(e.target.value))
+              setShowPay(false)
+            }}>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.status === 'OPEN' ? 'Pendiente' : 'Pagada'} · desde {day.format(new Date(a.openedAt))}
+                {a.status === 'CANCELLED' && a.closedAt ? ` hasta ${day.format(new Date(a.closedAt))}` : ''}
+              </option>
+            ))}
+          </Select>
+        </label>
+      )}
+
       <RemitoSheet
         values={values}
         changed={changed}
@@ -225,7 +261,9 @@ export default function CustomerFichaPage() {
         remito={remito}
         dueDate={account?.dueDate ?? null}
         overdueMonths={account?.overdue ? account.monthsOverdue : null}
-        onPayClick={account ? () => setShowPay((open) => !open) : undefined}
+        paid={paid}
+        closedAt={account?.closedAt ?? null}
+        onPayClick={account && !paid ? () => setShowPay((open) => !open) : undefined}
       />
 
       {/* Se abre al tocar el pie del remito: registrar un pago y aplicar los recargos que ya corresponden (D18). */}

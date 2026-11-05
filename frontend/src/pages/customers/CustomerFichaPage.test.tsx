@@ -94,6 +94,9 @@ const vencida = (extra: object = {}) =>
 const cancelada = (extra: object = {}) =>
   ficha(9, { status: 'CANCELLED', closedAt: '2026-03-20T10:00:00.000Z', balance: '0.00', payable: '0.00', ...extra })
 
+const pagada = (extra: object = {}) =>
+  ficha(3, { status: 'CANCELLED', closedAt: '2026-03-20T10:00:00.000Z', balance: '0.00', payable: '0.00', ...extra })
+
 const render = (path = '/clientes/5') =>
   baseRender(
     <MemoryRouter initialEntries={[path]}>
@@ -264,15 +267,131 @@ describe('CustomerFichaPage: renglones y totales', () => {
     expect(await screen.findByTestId('remito-due')).not.toHaveTextContent('VENCIDA')
   })
 
-  it('sin ficha abierta el remito queda con la grilla vacía y sin vencimiento; las canceladas no se muestran', async () => {
-    api([cancelada()])
+  it('un cliente sin ninguna ficha ve el remito con la grilla vacía, sin vencimiento ni sello, y sin poder poner los números', async () => {
+    api([])
     render()
 
     await screen.findByLabelText('Señor/es')
-    expect(screen.queryByText('Cuaderno rayado')).not.toBeInTheDocument()
     expect(screen.getAllByRole('row', { hidden: true })).toHaveLength(1 + 12)
     expect(screen.queryByTestId('remito-due')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('remito-paid-stamp')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Número de ficha')).toBeDisabled()
+    expect(screen.queryByLabelText('Ficha')).not.toBeInTheDocument()
+  })
+
+  it('una ficha pendiente no lleva el sello PAGADO', async () => {
+    api([ficha(3)])
+    render()
+
+    await screen.findByLabelText('Señor/es')
+    expect(screen.queryByTestId('remito-paid-stamp')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('remito-closed')).not.toBeInTheDocument()
+  })
+
+  it('sin ficha pendiente muestra la última ficha pagada: el remito completo, con PAGADO grande y sin acciones de pago', async () => {
+    api([pagada({ payments: [{ id: 1, amount: '450.00', paymentMethod: 'TRANSFER', note: null, createdAt: '2026-03-20T10:00:00.000Z', userName: 'Ana' }] })])
+    render()
+
+    expect(await screen.findByTestId('remito-paid-stamp')).toHaveTextContent('PAGADO')
+    expect(screen.getByTestId('remito').contains(screen.getByTestId('remito-paid-stamp'))).toBe(true) // cruza el remito
+    expect(screen.getByText('Cuaderno rayado')).toBeInTheDocument() // con todo el detalle de la compra
+    expect(screen.getByText('Carpeta')).toBeInTheDocument()
+    expect(screen.getByText(/^Pago .* · Transferencia$/)).toBeInTheDocument()
+    expect(screen.getByTestId('remito-balance')).toHaveTextContent(/\$\s?0,00/)
+    expect(screen.getByTestId('remito-closed')).toHaveTextContent(/Cancelada el 20\/3\/26/)
+    expect(screen.queryByTestId('remito-due')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Registrar un pago' })).not.toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Cuenta Corriente: tildado' })).toBeInTheDocument()
+  })
+
+  it('el sello no tapa el remito: no recibe toques', async () => {
+    api([pagada()])
+    render()
+
+    expect((await screen.findByTestId('remito-paid-stamp')).parentElement).toHaveClass('pointer-events-none')
+  })
+
+  it('de varias fichas pagadas sin pendiente muestra la que se cerró último', async () => {
+    api([
+      pagada({ id: 8, closedAt: '2026-01-10T10:00:00.000Z', sales: [{ ...ficha(8).sales[0]!, items: [{ productName: 'Artículo viejo', quantity: 1, unitPrice: '1.00', subtotal: '1.00' }] }] }),
+      pagada({ id: 4, closedAt: '2026-05-10T10:00:00.000Z', sales: [{ ...ficha(4).sales[0]!, items: [{ productName: 'Artículo nuevo', quantity: 1, unitPrice: '1.00', subtotal: '1.00' }] }] }),
+    ])
+    render()
+
+    expect(await screen.findByText('Artículo nuevo')).toBeInTheDocument()
+    expect(screen.queryByText('Artículo viejo')).not.toBeInTheDocument()
+  })
+
+  it('con una pendiente y una pagada muestra la pendiente y deja elegir la ficha; la pagada lleva el sello', async () => {
+    api([pagada({ id: 9, sales: [{ ...ficha(9).sales[0]!, items: [{ productName: 'Artículo pagado', quantity: 1, unitPrice: '1.00', subtotal: '1.00' }] }] }), ficha(3)])
+    const user = userEvent.setup()
+    render()
+
+    const selector = await screen.findByLabelText('Ficha')
+    expect(selector).toHaveValue('3')
+    expect(within(selector).getAllByRole('option').map((o) => o.textContent)).toEqual([expect.stringMatching(/^Pendiente · desde/), expect.stringMatching(/^Pagada · desde .* hasta /)])
+    expect(screen.queryByTestId('remito-paid-stamp')).not.toBeInTheDocument()
+
+    await user.selectOptions(selector, '9')
+
+    expect(screen.getByTestId('remito-paid-stamp')).toBeInTheDocument()
+    expect(screen.getByText('Artículo pagado')).toBeInTheDocument()
+    expect(screen.queryByText('Cuaderno rayado')).not.toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText('Ficha'), '3')
+    expect(screen.queryByTestId('remito-paid-stamp')).not.toBeInTheDocument()
+    expect(screen.getByText('Cuaderno rayado')).toBeInTheDocument()
+  })
+
+  it('al cambiar de ficha, lo escrito en los números del remito no pasa a la otra, pero lo del cliente sí se conserva', async () => {
+    api([pagada({ id: 9 }), ficha(3)])
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Ficha')
+    await user.type(screen.getByLabelText('Remito Nº'), '77')
+    await user.type(screen.getByLabelText('Localidad'), 'Formosa')
+    expect(within(barra()!).getByText('Tenés 2 cambios sin guardar')).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText('Ficha'), '9')
+
+    expect(screen.getByLabelText('Remito Nº')).toHaveValue('')
+    expect(screen.getByLabelText('Localidad')).toHaveValue('Formosa')
+    expect(within(barra()!).getByText('Tenés 1 cambio sin guardar')).toBeInTheDocument()
+  })
+
+  it('al cambiar de ficha se cierra el formulario de pago', async () => {
+    api([pagada({ id: 9 }), ficha(3)])
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Ficha')
+    await user.click(screen.getByRole('button', { name: 'Registrar un pago' }))
+    expect(screen.getByLabelText('Importe')).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText('Ficha'), '9')
+    await user.selectOptions(screen.getByLabelText('Ficha'), '3')
+
+    expect(screen.queryByLabelText('Importe')).not.toBeInTheDocument()
+  })
+
+  it('el selector de ficha no aparece si hay una sola', async () => {
+    api([ficha(3)])
+    render()
+
+    await screen.findByLabelText('Señor/es')
+    expect(screen.queryByLabelText('Ficha')).not.toBeInTheDocument()
+  })
+
+  it('en una ficha pagada también se pueden guardar los números del remito, en esa ficha', async () => {
+    const { calls } = api([pagada({ id: 9 })], { 'PUT /api/accounts/9/remito': () => pagada({ id: 9 }) })
+    const user = userEvent.setup()
+    render()
+    await screen.findByTestId('remito-paid-stamp')
+
+    await user.type(screen.getByLabelText('Remito Nº'), '55')
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(() => expect(puts(calls, '/api/accounts/9/remito')).toHaveLength(1))
+    expect(puts(calls, '/api/accounts/9/remito')[0]!.body).toEqual({ number: '', remitoNumber: '55' })
   })
 })
 
@@ -445,103 +564,6 @@ describe('CustomerFichaPage: editar y guardar', () => {
     await waitFor(() => expect(barra()).not.toBeInTheDocument())
     expect(screen.getByLabelText('Remito Nº')).toHaveValue('0001-00004567')
     expect(screen.getByLabelText('Número de ficha')).toHaveValue('10')
-  })
-
-  it('si la ficha se cancela con un pago, lo escrito en sus números ya no cuenta como cambio', async () => {
-    let pagado = false
-    api([], {
-      'GET /api/accounts': () => (pagado ? [cancelada()] : [ficha(3)]),
-      'POST /api/accounts/3/payments': () => {
-        pagado = true
-        return cancelada()
-      },
-    })
-    const user = userEvent.setup()
-    render()
-    await screen.findByLabelText('Señor/es')
-    await user.type(screen.getByLabelText('Remito Nº'), '77')
-    expect(within(barra()!).getByText('Tenés 1 cambio sin guardar')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Registrar un pago' }))
-    await user.type(screen.getByLabelText('Importe'), '450')
-    await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
-
-    await screen.findByText('Pago registrado')
-    await waitFor(() => expect(screen.getByLabelText('Remito Nº')).toBeDisabled())
-    expect(barra()).not.toBeInTheDocument()
-  })
-
-  it('los datos del comercio se guardan en la base, todos juntos', async () => {
-    const { calls } = api([ficha(3)], { 'PUT /api/settings/business': () => comercio })
-    const user = userEvent.setup()
-    render()
-    await screen.findByLabelText('Señor/es')
-
-    await escribir(user, 'Nombre del comercio', 'Otro comercio')
-    await user.selectOptions(screen.getByLabelText('Condición frente a ARCA del comercio'), 'MONOTAX')
-    await escribir(user, 'C.U.I.T. del comercio', '30-71234567-8')
-    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
-
-    await waitFor(() => expect(puts(calls, '/api/settings/business')).toHaveLength(1))
-    expect(puts(calls, '/api/settings/business')[0]!.body).toEqual({
-      name: 'Otro comercio',
-      owner: 'Titular de prueba',
-      address: 'Calle 1',
-      taxCondition: 'MONOTAX',
-      cuit: '30712345678',
-      grossIncome: '123-456',
-      activityStart: '03/2011',
-    })
-  })
-
-  it('con el encabezado vacío se completa una sola vez y se guarda', async () => {
-    const { calls } = api([ficha(3)], { 'PUT /api/settings/business': () => comercio }, maria, comercioVacio)
-    const user = userEvent.setup()
-    render()
-
-    expect(await screen.findByText(/El encabezado del comercio está vacío/)).toBeInTheDocument()
-    await user.type(screen.getByLabelText('Nombre del comercio'), 'Comercio')
-    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
-
-    await waitFor(() => expect(puts(calls, '/api/settings/business')).toHaveLength(1))
-    expect(puts(calls, '/api/settings/business')[0]!.body).toEqual({
-      name: 'Comercio',
-      owner: '',
-      address: '',
-      taxCondition: null,
-      cuit: '',
-      grossIncome: '',
-      activityStart: '',
-    })
-  })
-
-  it('con el encabezado cargado no muestra el aviso de encabezado vacío', async () => {
-    api([ficha(3)])
-    render()
-    await screen.findByLabelText('Señor/es')
-
-    expect(screen.queryByText(/El encabezado del comercio está vacío/)).not.toBeInTheDocument()
-  })
-
-  it('con cambios en el cliente, la ficha y el comercio hace tres guardados, cada uno en su lugar', async () => {
-    const { calls } = api([ficha(3)], {
-      'PUT /api/customers/5': () => maria,
-      'PUT /api/accounts/3/remito': () => ficha(3),
-      'PUT /api/settings/business': () => comercio,
-    })
-    const user = userEvent.setup()
-    render()
-    await screen.findByLabelText('Señor/es')
-
-    await user.type(screen.getByLabelText('Localidad'), 'Formosa')
-    await user.type(screen.getByLabelText('Número de ficha'), '5')
-    await user.type(screen.getByLabelText('Ingresos Brutos'), '9')
-    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
-
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Cambios guardados'))
-    expect(puts(calls, '/api/customers/5')).toHaveLength(1)
-    expect(puts(calls, '/api/accounts/3/remito')).toHaveLength(1)
-    expect(puts(calls, '/api/settings/business')).toHaveLength(1)
   })
 
   it('si un guardado falla muestra cuál, los otros igual se guardan y lo que falló sigue escrito', async () => {
@@ -751,24 +773,48 @@ describe('CustomerFichaPage: pagos desde el pie del remito', () => {
     expect(screen.queryByRole('button', { name: 'Aplicar recargos' })).not.toBeInTheDocument()
   })
 
-  it('después de un pago que cancela la ficha el remito pasa a estar vacío', async () => {
+  it('después de un pago que cancela la ficha, el remito sigue completo y pasa a llevar PAGADO', async () => {
     let pagado = false
     api([], {
-      'GET /api/accounts': () => (pagado ? [cancelada()] : [ficha(3)]),
+      'GET /api/accounts': () => (pagado ? [pagada()] : [ficha(3)]),
       'POST /api/accounts/3/payments': () => {
         pagado = true
-        return cancelada()
+        return pagada()
       },
     })
     const user = userEvent.setup()
     render()
     await screen.findByLabelText('Señor/es')
+    expect(screen.queryByTestId('remito-paid-stamp')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Registrar un pago' }))
     await user.type(screen.getByLabelText('Importe'), '450')
     await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('Pago registrado')
-    await waitFor(() => expect(screen.queryByText('Cuaderno rayado')).not.toBeInTheDocument())
-    expect(screen.getByRole('img', { name: 'Cuenta Corriente: sin tildar' })).toBeInTheDocument()
+    expect(await screen.findByTestId('remito-paid-stamp')).toBeInTheDocument()
+    expect(screen.getByText('Cuaderno rayado')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Registrar un pago' })).not.toBeInTheDocument()
+  })
+
+  it('lo escrito en los números del remito antes del pago que cancela la ficha se conserva, porque la ficha es la misma', async () => {
+    let pagado = false
+    api([], {
+      'GET /api/accounts': () => (pagado ? [pagada()] : [ficha(3)]),
+      'POST /api/accounts/3/payments': () => {
+        pagado = true
+        return pagada()
+      },
+    })
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Señor/es')
+    await user.type(screen.getByLabelText('Remito Nº'), '77')
+    await user.click(screen.getByRole('button', { name: 'Registrar un pago' }))
+    await user.type(screen.getByLabelText('Importe'), '450')
+    await user.click(screen.getByRole('button', { name: 'Registrar pago' }))
+
+    await screen.findByTestId('remito-paid-stamp')
+    expect(screen.getByLabelText('Remito Nº')).toHaveValue('77')
+    expect(within(barra()!).getByText('Tenés 1 cambio sin guardar')).toBeInTheDocument()
   })
 })

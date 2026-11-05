@@ -14,6 +14,8 @@ type Props = {
   remito: RemitoTotals
   dueDate: string | null // vencimiento de la ficha abierta
   overdueMonths: number | null // null = no está vencida
+  paid?: boolean // la cuenta se pagó por completo: el remito lleva el sello PAGADO
+  closedAt?: string | null // cuándo se canceló (solo en fichas pagadas)
   onPayClick?: () => void // si viene, tocar el pie del remito abre "Registrar pago" (solo con ficha abierta)
 }
 
@@ -26,7 +28,7 @@ const NO_ACCOUNT_HINT = 'Se puede completar cuando el cliente tiene una ficha ab
 // Ficha formal del comercio (remito "X", documento no válido como factura), armada como la hoja de papel y editable:
 // cada dato que el papel deja escribir se toca y se cambia (el cliente, la ficha, el encabezado del comercio).
 // Los renglones NO se editan: salen de las ventas y de los pagos (D22/D23). Guardar es cosa de la pantalla que la usa.
-export default function RemitoSheet({ values, changed, onChange, accountFields, condition, date, onDateChange, remito, dueDate, overdueMonths, onPayClick }: Props) {
+export default function RemitoSheet({ values, changed, onChange, accountFields, condition, date, onDateChange, remito, dueDate, overdueMonths, paid = false, closedAt = null, onPayClick }: Props) {
   const blanks = Math.max(0, REMITO_ROWS - remito.lines.length)
   const mark = (key: FieldKey) => changed.has(key)
   const text = (key: FieldKey, label: string, className?: string, placeholder = '') => (
@@ -35,8 +37,18 @@ export default function RemitoSheet({ values, changed, onChange, accountFields, 
 
   return (
     <div // Los fondos negros (la X y la barra REMITO) se imprimen aunque el navegador tenga desactivados los fondos.
-      className="mx-auto w-full max-w-3xl border-2 border-black bg-white text-black [-webkit-print-color-adjust:exact] [print-color-adjust:exact]"
+      className="relative mx-auto w-full max-w-3xl overflow-hidden border-2 border-black bg-white text-black [-webkit-print-color-adjust:exact] [print-color-adjust:exact]"
       data-testid="remito">
+      {/* Cuenta pagada por completo: sello grande cruzado por la mitad del remito (no tapa lo escrito debajo: no recibe toques). */}
+      {paid && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <span
+            data-testid="remito-paid-stamp"
+            className="-rotate-[18deg] rounded-xl border-[10px] border-red-700/70 px-10 py-2 text-[7rem] leading-none font-black tracking-[0.2em] text-red-700/70 select-none max-sm:border-4 max-sm:px-4 max-sm:text-5xl">
+            PAGADO
+          </span>
+        </div>
+      )}
       {/* Encabezado del emisor: datos del comercio, guardados en la base */}
       <div className="grid grid-cols-[1fr_auto_1fr] border-b-2 border-black">
         <div className="grid content-start gap-1 p-3 text-center">
@@ -211,7 +223,7 @@ export default function RemitoSheet({ values, changed, onChange, accountFields, 
           <p className="inline-block bg-black px-6 py-1 text-center text-3xl font-bold tracking-widest text-white">REMITO</p>
         </div>
 
-        <Totals remito={remito} dueDate={dueDate} overdueMonths={overdueMonths} onPayClick={onPayClick} />
+        <Totals remito={remito} dueDate={dueDate} overdueMonths={overdueMonths} closedAt={closedAt} onPayClick={onPayClick} />
       </div>
 
       <p className="border-t-2 border-black px-3 py-1 text-right text-[10px] font-semibold">
@@ -221,7 +233,7 @@ export default function RemitoSheet({ values, changed, onChange, accountFields, 
   )
 }
 
-function Totals({ remito, dueDate, overdueMonths, onPayClick }: Pick<Props, 'remito' | 'dueDate' | 'overdueMonths' | 'onPayClick'>) {
+function Totals({ remito, dueDate, overdueMonths, closedAt, onPayClick }: Pick<Props, 'remito' | 'dueDate' | 'overdueMonths' | 'onPayClick'> & { closedAt: string | null }) {
   const money = (c: number) => peso.format(c / 100)
   const rows = (
     <>
@@ -249,7 +261,12 @@ function Totals({ remito, dueDate, overdueMonths, onPayClick }: Pick<Props, 'rem
           </p>
         </>
       )}
-      {dueDate && (
+      {closedAt && (
+        <p className="text-right text-xs" data-testid="remito-closed">
+          Cancelada el {day.format(new Date(closedAt))}
+        </p>
+      )}
+      {dueDate && !closedAt && (
         <p className="text-right text-xs" data-testid="remito-due">
           Vence {day.format(new Date(dueDate))}
           {overdueMonths !== null && (
