@@ -3,7 +3,7 @@ import { nonNegativeAmountSchema, optionalText } from "./common.validator.js";
 
 export const PAYMENT_METHODS = ["CASH", "TRANSFER", "CARD", "DIGITAL_WALLET"] as const;
 
-const paymentMethod = z.enum(PAYMENT_METHODS, { error: "Elegí un medio de pago de la lista" });
+export const paymentMethodSchema = z.enum(PAYMENT_METHODS, { error: "Elegí un medio de pago de la lista" });
 
 // Cada ítem: un producto y cuántas unidades se venden (enteras, D6). El precio NO viene del cliente:
 // siempre es el precio de lista del producto (D13-a).
@@ -22,7 +22,7 @@ const itemSchema = z.object({
 // La venta completa suma cliente, descuento en pesos, nota para casos especiales y la opción de venderla a crédito.
 export const saleInputSchema = z
   .object({
-    paymentMethod: paymentMethod.optional(),
+    paymentMethod: paymentMethodSchema.optional(),
     customerId: z
       .number({ error: "El cliente no es válido" })
       .int("El cliente no es válido")
@@ -66,7 +66,7 @@ export const annulInputSchema = z.object({
 // Filtros del historial: /api/sales?status=ANNULLED&paymentMethod=CASH&limit=20
 export const saleListQuerySchema = z.object({
   status: z.enum(["CONFIRMED", "ANNULLED"], { error: 'El estado debe ser "CONFIRMED" o "ANNULLED"' }).optional(),
-  paymentMethod: paymentMethod.optional(),
+  paymentMethod: paymentMethodSchema.optional(),
   customerId: z.coerce.number({ error: "El cliente no es válido" }).int().positive().optional(),
   onCredit: z
     .enum(["true", "false"], { error: 'El filtro onCredit debe ser "true" o "false"' })

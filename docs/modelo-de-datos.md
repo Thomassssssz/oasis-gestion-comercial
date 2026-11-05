@@ -223,9 +223,9 @@ Esta tabla todavía no se relaciona con otras: las ventas con cliente y las cuen
 | dueDate | fecha y hora | `openedAt` + 1 mes. No cambia con ventas ni pagos posteriores |
 | closedAt | fecha y hora, opcional | cuándo se canceló; vacío mientras está abierta |
 
-El **saldo no se guarda**: se calcula con las ventas de la ficha (`Sale.creditAccountId`) menos descuentos, anuladas excluidas (D17-h). Los pagos y recargos se agregan en la etapa siguiente como tablas propias.
+El **saldo no se guarda**: se calcula como ventas de la ficha (`Sale.creditAccountId`, con descuentos y sin las anuladas) + recargos registrados − pagos (D17-h, D18).
 
-**Reglas que hace cumplir la propia base de datos:** el vencimiento es posterior a la apertura; una ficha abierta no tiene fecha de cierre y una cancelada sí; un cliente tiene **como máximo una ficha abierta** (índice único parcial) pero puede tener muchas canceladas; no se puede borrar un cliente con fichas ni una ficha con ventas.
+**Reglas que hace cumplir la propia base de datos:** el vencimiento es posterior a la apertura; una ficha abierta no tiene fecha de cierre y una cancelada sí; un cliente tiene **como máximo una ficha abierta** (índice único parcial) pero puede tener muchas canceladas; no se puede borrar un cliente con fichas ni una ficha con ventas, pagos o recargos.
 
 ### Por qué está en 3FN
 
@@ -239,3 +239,45 @@ El **saldo no se guarda**: se calcula con las ventas de la ficha (`Sale.creditAc
 
 - Que haya una sola ficha abierta por cliente y que una compra a crédito después de cancelar abra un ciclo nuevo (D17-f, D17-g).
 - Qué pasa al reabrir una ficha cancelada.
+
+### AccountPayment (Pago a la cuenta)
+
+| Campo | Tipo | Detalle |
+|---|---|---|
+| id | entero, clave primaria | autoincremental |
+| accountId | entero, clave foránea → CreditAccount | a qué ficha se paga |
+| userId | entero, clave foránea → User | quién registró el pago (auditoría) |
+| amount | decimal(12,2) mayor que cero | importe pagado |
+| paymentMethod | `CASH`, `TRANSFER`, `CARD` o `DIGITAL_WALLET` | cómo pagó el cliente |
+| note | texto opcional, no solo espacios | aclaración |
+| createdAt | fecha y hora | cuándo se registró |
+
+Un pago **no modifica** `CreditAccount.dueDate` (regla confirmada). Nunca se edita ni se borra.
+
+### Surcharge (Recargo por mora)
+
+| Campo | Tipo | Detalle |
+|---|---|---|
+| id | entero, clave primaria | autoincremental |
+| accountId | entero, clave foránea → CreditAccount | a qué ficha se recarga |
+| userId | entero, clave foránea → User | quién lo registró |
+| monthNumber | entero desde 1 | cuál mes de atraso es. Único por ficha (`accountId` + `monthNumber`) |
+| base | decimal(12,2) mayor que cero | capital pendiente al inicio de ese mes, con el que se calculó |
+| percent | decimal(5,2), mayor que 0 y hasta 100 | porcentaje usado (copia del parámetro del momento, D16-d) |
+| amount | decimal(12,2) mayor que cero | monto del recargo (D18-b) |
+| chargedOn | fecha y hora | fecha en que ese mes de atraso quedó completo |
+| createdAt | fecha y hora | cuándo se registró |
+
+**Reglas que hace cumplir la propia base de datos:** importes, base y porcentaje mayores que cero (porcentaje hasta 100), mes desde 1, el mismo mes no se cobra dos veces en una ficha, y no se puede borrar una ficha o un usuario que tengan pagos o recargos.
+
+### Por qué siguen en 3FN
+
+- Las tres tablas (ficha, pago, recargo) tienen clave de un solo campo (`id`); `Surcharge` tiene además la clave única (`accountId`, `monthNumber`), y todos sus campos dependen de esa clave completa.
+- Los datos del cliente y del usuario no se repiten: se llega con las claves foráneas.
+- `Surcharge.base`, `percent` y `amount` **no son datos derivados repetidos**: `percent` es el valor del parámetro **al momento** de calcular (puede cambiar después) y `base` es el capital de ese momento (depende de pagos y anulaciones que pueden ocurrir luego). Se guardan para que el recargo sea trazable y el pasado no se recalcule. `amount` es el resultado ya cobrado, no se puede deducir si cambian las reglas.
+- El **saldo**, los **recargos pendientes** y los **meses de atraso** no se guardan: se calculan.
+
+### Supuestos a confirmar (no están relevados)
+
+- La fórmula completa del recargo y el orden de imputación de los pagos (D18-a a D18-e).
+- Que no se admita saldo a favor (D18-h) y qué pasa al reabrir una ficha cancelada (D18-l).

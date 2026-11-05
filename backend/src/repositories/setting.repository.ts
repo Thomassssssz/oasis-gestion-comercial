@@ -1,7 +1,7 @@
 import type { PrismaClient } from "../config/prisma.js";
 import type { SettingInput } from "../validators/setting.validator.js";
 
-const SETTINGS_ID = 1;
+export const SETTINGS_ID = 1;
 const include = { updatedBy: { select: { id: true, fullName: true } } };
 
 // Acceso a datos: la tabla de parámetros tiene una sola fila (id = 1), que se crea con sus valores por defecto la primera vez que se pide.

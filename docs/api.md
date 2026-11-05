@@ -120,11 +120,17 @@ Reglas: el porcentaje va de 0 a 100 con hasta 2 decimales y punto decimal (la co
 
 ## Cuentas corrientes
 
-Requieren sesión (401 si no hay). Las fichas se abren solas al vender a crédito (D17); no hay `POST`, `PUT` ni `DELETE`.
+Requieren sesión (401 si no hay). Las fichas se abren solas al vender a crédito (D17); no se crean, editan ni borran a mano. Los pagos y recargos son movimientos nuevos: tampoco se editan ni se borran (D18).
 
 | Método y ruta | Qué hace | Respuestas |
 |---|---|---|
 | `GET /accounts` | Lista las fichas, las más nuevas primero. Filtros opcionales: `status` (`OPEN` = pendientes, `CANCELLED` = historial) y `customerId` | 200, 400 |
-| `GET /accounts/:id` | Devuelve una ficha con sus ventas | 200, 400, 404 |
+| `GET /accounts/:id` | Devuelve una ficha con sus ventas, pagos y recargos | 200, 400, 404 |
+| `POST /accounts/:id/payments` | Registra un pago. Cuerpo: `{ "amount", "paymentMethod", "note"? }`. Antes registra los recargos que ya corresponden | 201, 400, 404, 409 |
+| `POST /accounts/:id/surcharges` | Registra los recargos por mora que ya corresponden y todavía no figuran. Sin cuerpo | 200, 404, 409 |
 
 Cada ficha devuelve `id`, `customer` (`{ id, name }`), `status`, `openedAt`, `dueDate`, `closedAt`, `balance` (texto con 2 decimales, calculado), `overdue` (verdadero si está abierta y ya pasó el vencimiento), `monthsOverdue` (meses de atraso completos; 0 si no está vencida o está cancelada) y `sales` (`id`, `status`, `createdAt`, `note`, `total`).
+
+Además cada ficha devuelve: `pendingSurcharges` (recargos que ya corresponden pero no se registraron: `monthNumber`, `base`, `percent`, `amount`, `chargedOn`; solo se muestran, **no se guardan** hasta aplicarlos o pagar), `pendingSurchargesTotal`, `payable` (saldo + recargos pendientes, lo que habría que pagar hoy), `surcharges` (los registrados, con `registeredAt`) y `payments` (`id`, `amount`, `paymentMethod`, `note`, `createdAt`, `userName`). El `balance` es el saldo **registrado** (ventas − anuladas + recargos registrados − pagos).
+
+Pagos (D18): `amount` es un importe mayor que cero con hasta 2 decimales (texto o número) y `paymentMethod` uno de `CASH`, `TRANSFER`, `CARD`, `DIGITAL_WALLET`. El pago no puede superar el saldo incluyendo los recargos que ya corresponden: si lo supera responde 409 con el saldo actual y no se guarda nada. Un pago parcial **no cambia** `dueDate`. Si el saldo llega a cero, la ficha pasa a `CANCELLED`. Pagar o aplicar recargos en una ficha cancelada responde 409. Quién registra sale de la sesión.

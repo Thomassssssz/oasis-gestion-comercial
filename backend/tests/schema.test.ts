@@ -414,3 +414,75 @@ describe("esquema: fichas de cuenta corriente y venta completa", () => {
     });
   });
 });
+
+describe("esquema: pagos y recargos de las fichas", () => {
+  async function seedAccount() {
+    const user = await prisma.user.create({ data: { username: "ana", fullName: "Ana", passwordHash: "x" } });
+    const customer = await prisma.customer.create({ data: { name: "Ana", creditAuthorized: true } });
+    const account = await prisma.creditAccount.create({
+      data: { customerId: customer.id, openedAt: new Date("2026-03-10T15:00:00Z"), dueDate: new Date("2026-04-10T15:00:00Z") },
+    });
+    return { user, account };
+  }
+  const charged = new Date("2026-05-10T15:00:00Z");
+
+  it("un pago es siempre mayor que cero y su nota no puede ser solo espacios", async () => {
+    const { user, account } = await seedAccount();
+    const base = { accountId: account.id, userId: user.id, paymentMethod: "CASH" as const };
+
+    await expect(prisma.accountPayment.create({ data: { ...base, amount: "0.00" } })).rejects.toThrow();
+    await expect(prisma.accountPayment.create({ data: { ...base, amount: "-1.00" } })).rejects.toThrow();
+    await expect(prisma.accountPayment.create({ data: { ...base, amount: "1.00", note: "  " } })).rejects.toThrow();
+    await expect(prisma.accountPayment.create({ data: { ...base, amount: "0.01", note: "Seña" } })).resolves.toBeTruthy();
+  });
+
+  it("un pago exige medio de pago", async () => {
+    const { user, account } = await seedAccount();
+    await expect(
+      prisma.$executeRaw`INSERT INTO "AccountPayment" ("accountId", "userId", "amount") VALUES (${account.id}, ${user.id}, 10)`,
+    ).rejects.toThrow();
+  });
+
+  it("un recargo tiene mes desde 1, base, monto y porcentaje (hasta 100) mayores que cero", async () => {
+    const { user, account } = await seedAccount();
+    const ok = { accountId: account.id, userId: user.id, monthNumber: 1, base: "1000.00", percent: "5.00", amount: "50.00", chargedOn: charged };
+
+    await expect(prisma.surcharge.create({ data: { ...ok, monthNumber: 0 } })).rejects.toThrow();
+    await expect(prisma.surcharge.create({ data: { ...ok, base: "0.00" } })).rejects.toThrow();
+    await expect(prisma.surcharge.create({ data: { ...ok, amount: "0.00" } })).rejects.toThrow();
+    await expect(prisma.surcharge.create({ data: { ...ok, percent: "0.00" } })).rejects.toThrow();
+    await expect(prisma.surcharge.create({ data: { ...ok, percent: "100.01" } })).rejects.toThrow();
+    await expect(prisma.surcharge.create({ data: { ...ok, percent: "100.00" } })).resolves.toBeTruthy();
+  });
+
+  it("no se puede cobrar dos veces el mismo mes de una ficha, pero sí el mismo mes en otra ficha", async () => {
+    const { user, account } = await seedAccount();
+    const other = await prisma.creditAccount.create({
+      data: { customerId: account.customerId, status: "CANCELLED", openedAt: new Date("2026-01-10T15:00:00Z"), dueDate: new Date("2026-02-10T15:00:00Z"), closedAt: new Date("2026-02-01T15:00:00Z") },
+    });
+    const data = { userId: user.id, monthNumber: 1, base: "1000.00", percent: "5.00", amount: "50.00", chargedOn: charged };
+
+    await prisma.surcharge.create({ data: { ...data, accountId: account.id } });
+    await expect(prisma.surcharge.create({ data: { ...data, accountId: account.id } })).rejects.toThrow();
+    await expect(prisma.surcharge.create({ data: { ...data, accountId: other.id } })).resolves.toBeTruthy();
+  });
+
+  it("no permite borrar una ficha ni un usuario que tienen pagos o recargos", async () => {
+    const { user, account } = await seedAccount();
+    await prisma.accountPayment.create({ data: { accountId: account.id, userId: user.id, amount: "10.00", paymentMethod: "CASH" } });
+    await prisma.surcharge.create({
+      data: { accountId: account.id, userId: user.id, monthNumber: 1, base: "10.00", percent: "5.00", amount: "0.50", chargedOn: charged },
+    });
+
+    await expect(prisma.creditAccount.delete({ where: { id: account.id } })).rejects.toThrow();
+    await expect(prisma.user.delete({ where: { id: user.id } })).rejects.toThrow();
+  });
+
+  it("guarda los importes con dos decimales exactos", async () => {
+    const { user, account } = await seedAccount();
+    const payment = await prisma.accountPayment.create({
+      data: { accountId: account.id, userId: user.id, amount: "1234.50", paymentMethod: "TRANSFER" },
+    });
+    expect(payment.amount.toFixed(2)).toBe("1234.50");
+  });
+});

@@ -1,8 +1,10 @@
 import { Prisma, type PrismaClient } from "../config/prisma.js";
 import { dueDateFor, type AccountMovements } from "../helpers/credit.js";
 import { totalOf } from "../helpers/sale-total.js";
+import { SETTINGS_ID } from "./setting.repository.js";
 
 type Tx = Prisma.TransactionClient;
+type PaymentMethod = "CASH" | "TRANSFER" | "CARD" | "DIGITAL_WALLET";
 
 // Consultas de las fichas que se hacen DENTRO de una transacción ya abierta (por ejemplo, al registrar o anular
 // una venta a crédito). Reciben el cliente de la transacción para que todo se guarde junto o no se guarde nada.
@@ -27,16 +29,41 @@ export function accountQueries(tx: Tx) {
         where: { creditAccountId: accountId },
         select: { createdAt: true, annulledAt: true, discountAmount: true, items: { select: { quantity: true, unitPrice: true } } },
       });
+      const [payments, surcharges] = await Promise.all([
+        tx.accountPayment.findMany({ where: { accountId }, select: { amount: true, createdAt: true } }),
+        tx.surcharge.findMany({ where: { accountId }, select: { monthNumber: true, amount: true } }),
+      ]);
       return {
         sales: sales.map((sale) => ({
           total: totalOf(sale.items, sale.discountAmount),
           createdAt: sale.createdAt,
           annulledAt: sale.annulledAt,
         })),
-        payments: [],
-        surcharges: [],
+        payments,
+        surcharges,
       };
     },
+
+    find: (id: number) => tx.creditAccount.findUnique({ where: { id }, select: { id: true, status: true, dueDate: true } }),
+
+    // Porcentaje de recargo vigente (parámetro configurable, D16). Si todavía no hay fila de parámetros, se crea con el valor por defecto.
+    lateFeePercent: async () =>
+      (await tx.setting.upsert({ where: { id: SETTINGS_ID }, update: {}, create: { id: SETTINGS_ID }, select: { lateFeePercent: true } }))
+        .lateFeePercent,
+
+    addPayment: (data: { accountId: number; userId: number; amount: Prisma.Decimal; paymentMethod: PaymentMethod; note: string | null; createdAt: Date }) =>
+      tx.accountPayment.create({ data, select: { id: true } }),
+
+    addSurcharge: (data: {
+      accountId: number;
+      userId: number;
+      monthNumber: number;
+      base: Prisma.Decimal;
+      percent: Prisma.Decimal;
+      amount: Prisma.Decimal;
+      chargedOn: Date;
+      createdAt: Date;
+    }) => tx.surcharge.create({ data, select: { id: true } }),
   };
 }
 
@@ -44,6 +71,14 @@ export type AccountQueries = ReturnType<typeof accountQueries>;
 
 const accountInclude = {
   customer: { select: { id: true, name: true } },
+  payments: {
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: { id: true, amount: true, paymentMethod: true, note: true, createdAt: true, user: { select: { fullName: true } } },
+  },
+  surcharges: {
+    orderBy: { monthNumber: "asc" },
+    select: { monthNumber: true, base: true, percent: true, amount: true, chargedOn: true, createdAt: true },
+  },
   sales: {
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     select: {
@@ -70,6 +105,17 @@ export function createCreditAccountRepository(prisma: PrismaClient) {
       }),
 
     findById: (id: number) => prisma.creditAccount.findUnique({ where: { id }, include: accountInclude }),
+
+    lateFeePercent: () => prisma.$transaction((tx) => accountQueries(tx).lateFeePercent()),
+
+    // Corre `work` en una transacción con la ficha bloqueada: dos pagos o recargos sobre la misma ficha
+    // se hacen uno después del otro, y si algo falla no se guarda nada (todo o nada).
+    withLockedAccount: <T>(accountId: number, work: (ops: AccountQueries) => Promise<T>) =>
+      prisma.$transaction(async (tx) => {
+        const ops = accountQueries(tx);
+        await ops.lock(accountId);
+        return work(ops);
+      }),
   };
 }
 

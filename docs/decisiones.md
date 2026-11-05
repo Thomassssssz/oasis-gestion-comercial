@@ -162,3 +162,24 @@ Lo confirmado por el comercio: venta rápida (productos, cantidades, total y med
 - **i) Anular una venta a crédito (propuesta):** baja el saldo de la ficha. Si el saldo queda en cero, la ficha pasa al historial de canceladas. Si el cliente ya pagó más de lo que quedaría debiendo, no se puede anular (409).
 - **j) Reloj de negocio:** las reglas de vencimiento usan un reloj propio (`businessNow`), separado del de las sesiones, para poder probar vencimientos sin vencer el login.
 - **k) Las fichas no se editan ni se borran a mano:** nacen de una venta a crédito y cambian de estado por sus movimientos.
+
+
+## D18 – Pagos, vencimientos y recargos por mora
+
+**Confirmado por el comercio:** un pago parcial reduce el saldo pero **no reinicia ni modifica el vencimiento original**; el recargo es del 5% por mes de atraso y es un parámetro configurable (D16); los recargos se registran de forma trazable y no se recalcula el pasado en silencio; las cuentas canceladas pasan a un historial separado.
+
+**La fórmula exacta NO está confirmada.** Lo siguiente son **propuestas de Claude, a confirmar con los propietarios** y con revisión profesional y legal antes del uso comercial real. Todo el cálculo está aislado en `backend/src/helpers/credit.ts`, así que cambiar la fórmula no toca el resto del sistema.
+
+- **a) Cuándo corresponde un recargo (propuesta):** por cada **mes de atraso completo** después del vencimiento. El primer recargo corresponde cuando pasó un mes entero desde `dueDate`; el segundo, dos meses, etc. Una ficha vencida hace un día figura "vencida" pero todavía no tiene recargo.
+- **b) Cuánto (propuesta):** `recargo del mes k = porcentaje × capital pendiente al inicio de ese mes`, redondeado a 2 decimales (hacia arriba en la mitad). **Sin capitalizar:** un recargo no genera recargo en el mes siguiente. El mes 1 toma el saldo pendiente al vencimiento (esto es lo que decía la propuesta original del CLAUDE.md).
+- **c) Orden de imputación de un pago (propuesta):** un pago cubre **primero los recargos que ya correspondían** a esa fecha y **después el capital**. Es una de las preguntas pendientes con los propietarios.
+- **d) Ventas agregadas después del vencimiento (propuesta):** entran en el capital pendiente recién a partir del mes cuyo inicio es posterior a la venta (no cambian la base de los meses anteriores). También es una pregunta pendiente (artículos agregados después del inicio del ciclo).
+- **e) Pagos posteriores al vencimiento (propuesta):** no borran los recargos ya registrados; reducen el capital sobre el que se calculan los meses siguientes.
+- **f) Registrar los recargos es una acción, no un cálculo silencioso:** la pantalla muestra los recargos que ya corresponden (`pendingSurcharges`) pero solo se guardan al **aplicarlos** (`POST /accounts/:id/surcharges`) o al **registrar un pago**, que primero registra los recargos pendientes para que el pago los cubra. Cada recargo guarda el mes, la base, el porcentaje usado, el monto, la fecha a la que corresponde y quién lo registró. Un mes no se puede cobrar dos veces (índice único).
+- **g) Cambiar el porcentaje no reescribe el pasado (D16-d):** los recargos ya registrados conservan el porcentaje con el que se calcularon; los meses nuevos usan el vigente.
+- **h) Un pago no puede superar el saldo (propuesta):** el saldo incluye los recargos que ya corresponden. Si lo supera, se rechaza (409) y no se guarda nada, ni siquiera los recargos que se iban a registrar (todo o nada). No hay saldo a favor.
+- **i) Un pago es un renglón propio:** lleva importe, medio de pago (los cuatro confirmados), nota opcional, quién y cuándo. No se edita ni se borra: un error se corrige hablando con quien administra la base o, a futuro, con una operación de corrección (a definir).
+- **j) Saldo en cero ⇒ ficha cancelada:** cuando un pago (o una anulación) deja el saldo en cero, la ficha pasa al historial y registra `closedAt`.
+- **k) Anular una venta a crédito con pagos hechos:** se rechaza si el saldo quedaría negativo (el cliente ya pagó más de lo que quedaría debiendo). Los recargos ya registrados **no se borran** al anular una venta (no se recalcula el pasado).
+- **l) Reabrir una ficha cancelada:** sigue sin definirse (a confirmar). Hoy no se reabre: una compra a crédito nueva abre otra ficha (D17-g).
+
