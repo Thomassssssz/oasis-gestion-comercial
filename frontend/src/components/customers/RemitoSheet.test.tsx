@@ -114,6 +114,19 @@ describe('RemitoSheet: lo fijo del papel', () => {
     expect(screen.getByLabelText('Día')).toHaveAttribute('maxlength', '2')
     expect(screen.getByLabelText('Año')).toHaveAttribute('maxlength', '4')
   })
+
+  it('con la fecha bloqueada (ficha abierta) los casilleros son de solo lectura y avisan por qué', () => {
+    render(<Remito dateLocked />)
+
+    for (const parte of ['Día', 'Mes', 'Año']) expect(screen.getByLabelText(parte)).toHaveAttribute('readonly')
+    expect(screen.getByLabelText('Día')).toHaveAttribute('title', 'Es el día en que se abrió la ficha')
+  })
+
+  it('sin bloquear, los casilleros de la fecha se escriben', () => {
+    render(<Remito />)
+
+    expect(screen.getByLabelText('Día')).not.toHaveAttribute('readonly')
+  })
 })
 
 describe('RemitoSheet: se edita tocando cada dato', () => {

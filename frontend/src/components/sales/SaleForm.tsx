@@ -25,13 +25,7 @@ type Props = {
 // Es solo para mostrar el total mientras se arma la venta: el total real lo calcula el servidor.
 const cents = (price: string) => Math.round(Number(price) * 100)
 
-// Importe en centavos a partir de lo que se escribe en el descuento. Acepta coma o punto; si no es un número, 0.
-const discountCents = (text: string) => {
-  const value = Number(text.trim().replace(',', '.'))
-  return Number.isFinite(value) && value > 0 ? Math.round(value * 100) : 0
-}
-
-// Venta rápida (productos, cantidades y medio de pago) o completa (además cliente, descuento, nota y crédito).
+// Venta rápida (productos, cantidades y medio de pago) o completa (además cliente, nota y crédito). Ya no se hacen descuentos (D25).
 // El precio es siempre el de lista (D13-a). Las reglas (stock, cliente autorizado, descuento válido...) las controla
 // la API y sus mensajes se muestran tal cual (D17).
 export default function SaleForm({ products, customers, onSaved }: Props) {
@@ -39,7 +33,7 @@ export default function SaleForm({ products, customers, onSaved }: Props) {
   const [productSearch, setProductSearch] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH')
   const [customerId, setCustomerId] = useState('')
-  const [discount, setDiscount] = useState('')
+  const [customerSearch, setCustomerSearch] = useState('') // lo que se escribe en la lupa para encontrar al cliente
   const [note, setNote] = useState('')
   const [onCredit, setOnCredit] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -48,11 +42,11 @@ export default function SaleForm({ products, customers, onSaved }: Props) {
 
   const matches = filterByName(products, productSearch)
   const byId = new Map(products.map((product) => [product.id, product]))
-  const subtotalCents = cart.reduce(
+  const totalCents = cart.reduce(
     (sum, line) => sum + cents(byId.get(line.productId)?.salePrice ?? '0') * (Number(line.quantity) || 0),
     0,
   )
-  const totalCents = subtotalCents - discountCents(discount)
+  const shownCustomers = filterByName(customers, customerSearch, customerId ? Number(customerId) : null)
   const customer = customers.find((c) => String(c.id) === customerId)
   const canUseCredit = customer?.creditAuthorized === true
 
@@ -84,12 +78,11 @@ export default function SaleForm({ products, customers, onSaved }: Props) {
         // A crédito no se manda medio de pago: se cobra después.
         ...(onCredit ? { onCredit: true } : { paymentMethod }),
         ...(customerId ? { customerId: Number(customerId) } : {}),
-        ...(discount.trim() ? { discount: discount.trim().replace(',', '.') } : {}),
         ...(note.trim() ? { note: note.trim() } : {}),
         items: cart.map((line) => ({ productId: line.productId, quantity: Number(line.quantity) })),
       })
       setCart([])
-      setDiscount('')
+      setCustomerSearch('')
       setNote('')
       setOnCredit(false)
       setCustomerId('')
@@ -202,8 +195,8 @@ export default function SaleForm({ products, customers, onSaved }: Props) {
         <label className="grid gap-1 text-sm">
           Cliente (opcional)
           <Select value={customerId} onChange={(e) => handleCustomerChange(e.target.value)}>
-            <option value="">Sin cliente</option>
-            {customers.map((c) => (
+            <option value="">{customerSearch.trim() && shownCustomers.length === 0 ? 'Ningún cliente coincide' : 'Sin cliente'}</option>
+            {shownCustomers.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
                 {c.creditAuthorized ? ' (crédito autorizado)' : ''}
@@ -211,15 +204,14 @@ export default function SaleForm({ products, customers, onSaved }: Props) {
             ))}
           </Select>
         </label>
-        <label className="grid gap-1 text-sm">
-          Descuento en pesos (opcional)
-          <Input
-            inputMode="decimal"
-            placeholder="0,00"
-            value={discount}
-            onChange={(e) => setDiscount(e.target.value)}
+        <div className="self-end">
+          <SearchInput
+            label="Buscar cliente por nombre"
+            placeholder="Buscar cliente por nombre"
+            value={customerSearch}
+            onChange={(e) => setCustomerSearch(e.target.value)}
           />
-        </label>
+        </div>
         <label className="grid gap-1 text-sm sm:col-span-2">
           Nota (opcional)
           <Input
@@ -256,11 +248,6 @@ export default function SaleForm({ products, customers, onSaved }: Props) {
           </label>
         )}
         <div className="text-right">
-          {discountCents(discount) > 0 && (
-            <p className="text-sm text-muted-foreground">
-              Subtotal {peso.format(subtotalCents / 100)} − descuento {peso.format(discountCents(discount) / 100)}
-            </p>
-          )}
           <p className="text-lg">
             Total: <strong data-testid="cart-total">{peso.format(totalCents / 100)}</strong>
           </p>

@@ -421,26 +421,51 @@ describe('SalesPage – venta completa', () => {
     expect(calls.find((c) => c.path === '/api/customers')?.query.get('active')).toBe('true')
   })
 
-  it('el total descuenta el descuento (acepta coma) y muestra el subtotal', async () => {
+  it('ya no hay campo de descuento: el total es la suma de los productos', async () => {
     mockApi(baseRoutes)
     const user = userEvent.setup()
     render(<SalesPage />)
     await agregar(user, 10)
 
-    await user.type(screen.getByLabelText('Descuento en pesos (opcional)'), '250,50')
-
-    expect(screen.getByTestId('cart-total')).toHaveTextContent(/\$\s?1\.250,00/) // 1500,50 − 250,50
-    expect(screen.getByText(/Subtotal .* − descuento/)).toHaveTextContent(/1\.500,50.*250,50/)
+    expect(screen.queryByLabelText(/Descuento/)).not.toBeInTheDocument()
+    expect(screen.getByTestId('cart-total')).toHaveTextContent(/\$\s?1\.500,50/)
   })
 
-  it('manda cliente, descuento con punto y nota; no manda lo que quedó vacío', async () => {
+  it('la lupa filtra la lista de clientes por nombre (sin tildes ni mayúsculas) y conserva el elegido', async () => {
+    mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    await screen.findByRole('option', { name: 'Pedro Sosa' })
+
+    await user.type(screen.getByLabelText('Buscar cliente por nombre'), 'GOMEZ')
+    expect(screen.getByRole('option', { name: 'María Gómez (crédito autorizado)' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Pedro Sosa' })).not.toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText('Cliente (opcional)'), 'María Gómez (crédito autorizado)')
+    await user.clear(screen.getByLabelText('Buscar cliente por nombre'))
+    await user.type(screen.getByLabelText('Buscar cliente por nombre'), 'pedro')
+    expect(screen.getByLabelText('Cliente (opcional)')).toHaveValue('5') // el elegido no desaparece
+    expect(screen.getByRole('option', { name: 'Pedro Sosa' })).toBeInTheDocument()
+  })
+
+  it('si ningún cliente coincide lo avisa en la lista', async () => {
+    mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    await screen.findByRole('option', { name: 'Pedro Sosa' })
+
+    await user.type(screen.getByLabelText('Buscar cliente por nombre'), 'zzz')
+
+    expect(screen.getByRole('option', { name: 'Ningún cliente coincide' })).toBeInTheDocument()
+  })
+
+  it('manda cliente y nota; no manda lo que quedó vacío', async () => {
     const { calls } = mockApi({ ...baseRoutes, 'POST /api/sales': () => venta(30) })
     const user = userEvent.setup()
     render(<SalesPage />)
     await agregar(user, 10)
 
     await user.selectOptions(screen.getByLabelText('Cliente (opcional)'), 'María Gómez (crédito autorizado)')
-    await user.type(screen.getByLabelText('Descuento en pesos (opcional)'), '100,5')
     await user.type(screen.getByLabelText('Nota (opcional)'), '  Pedido especial  ')
     await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
 
@@ -448,32 +473,31 @@ describe('SalesPage – venta completa', () => {
     expect(calls.find((c) => c.method === 'POST')!.body).toEqual({
       paymentMethod: 'CASH',
       customerId: 5,
-      discount: '100.5',
       note: 'Pedido especial',
       items: [{ productId: 10, quantity: 1 }],
     })
   })
 
-  it('después de registrar la venta limpia cliente, descuento, nota y crédito para la siguiente', async () => {
+  it('después de registrar la venta limpia cliente, búsqueda, nota y crédito para la siguiente', async () => {
     mockApi({ ...baseRoutes, 'POST /api/sales': () => venta(33) })
     const user = userEvent.setup()
     render(<SalesPage />)
     await agregar(user, 10)
     await user.selectOptions(screen.getByLabelText('Cliente (opcional)'), 'María Gómez (crédito autorizado)')
-    await user.type(screen.getByLabelText('Descuento en pesos (opcional)'), '10')
+    await user.type(screen.getByLabelText('Buscar cliente por nombre'), 'gomez')
     await user.type(screen.getByLabelText('Nota (opcional)'), 'Algo')
     await user.click(screen.getByLabelText(/Venta a crédito/))
     await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
     await screen.findByText(/Venta #33 registrada/)
 
     expect(screen.getByLabelText('Cliente (opcional)')).toHaveValue('')
-    expect(screen.getByLabelText('Descuento en pesos (opcional)')).toHaveValue('')
+    expect(screen.getByLabelText('Buscar cliente por nombre')).toHaveValue('')
     expect(screen.getByLabelText('Nota (opcional)')).toHaveValue('')
     expect(screen.getByLabelText(/Venta a crédito/)).not.toBeChecked()
     expect(screen.getByLabelText('Medio de pago')).toBeInTheDocument()
   })
 
-  it('la venta rápida no manda cliente, descuento ni nota', async () => {
+  it('la venta rápida no manda cliente ni nota', async () => {
     const { calls } = mockApi({ ...baseRoutes, 'POST /api/sales': () => venta(31) })
     const user = userEvent.setup()
     render(<SalesPage />)
@@ -527,20 +551,20 @@ describe('SalesPage – venta completa', () => {
     })
   })
 
-  it('si la API rechaza la venta muestra su mensaje y conserva cliente, descuento y nota', async () => {
+  it('si la API rechaza la venta muestra su mensaje y conserva cliente, nota y productos', async () => {
     mockApi({
       ...baseRoutes,
-      'POST /api/sales': () => Response.json({ error: 'El descuento no puede ser igual o mayor al total de la venta' }, { status: 400 }),
+      'POST /api/sales': () => Response.json({ error: 'No hay stock suficiente de Cuaderno A4' }, { status: 400 }),
     })
     const user = userEvent.setup()
     render(<SalesPage />)
     await agregar(user, 10)
     await user.selectOptions(screen.getByLabelText('Cliente (opcional)'), 'Pedro Sosa')
-    await user.type(screen.getByLabelText('Descuento en pesos (opcional)'), '99999')
+    await user.type(screen.getByLabelText('Nota (opcional)'), 'Pedido especial')
     await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('El descuento no puede ser igual o mayor al total de la venta')
-    expect(screen.getByLabelText('Descuento en pesos (opcional)')).toHaveValue('99999')
+    expect(await screen.findByRole('alert')).toHaveTextContent('No hay stock suficiente de Cuaderno A4')
+    expect(screen.getByLabelText('Nota (opcional)')).toHaveValue('Pedido especial')
     expect(screen.getByLabelText('Cliente (opcional)')).toHaveValue('6')
     expect(screen.getByLabelText('Cantidad de Cuaderno A4')).toBeInTheDocument()
   })

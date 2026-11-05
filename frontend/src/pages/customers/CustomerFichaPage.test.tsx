@@ -267,6 +267,31 @@ describe('CustomerFichaPage: renglones y totales', () => {
     expect(await screen.findByTestId('remito-due')).not.toHaveTextContent('VENCIDA')
   })
 
+  it('la fecha del remito es el día en que se abrió la ficha (el del primer producto), antes del vencimiento, y no se escribe a mano', async () => {
+    api([ficha(3)]) // abierta el 10/03/2026, vence el 10/04/2026
+    render()
+
+    await screen.findByLabelText('Señor/es')
+    expect(screen.getByLabelText('Día')).toHaveValue('10')
+    expect(screen.getByLabelText('Mes')).toHaveValue('03')
+    expect(screen.getByLabelText('Año')).toHaveValue('2026')
+    for (const parte of ['Día', 'Mes', 'Año']) expect(screen.getByLabelText(parte)).toHaveAttribute('readonly')
+    expect(screen.getByTestId('remito-due')).toHaveTextContent('Vence 10/4/26')
+  })
+
+  it('cada ficha lleva su propia fecha de apertura, también la pagada', async () => {
+    api([pagada({ id: 9, openedAt: '2026-01-05T15:00:00.000Z' }), ficha(3)])
+    const user = userEvent.setup()
+    render()
+    await screen.findByLabelText('Ficha')
+    expect(screen.getByLabelText('Mes')).toHaveValue('03')
+
+    await user.selectOptions(screen.getByLabelText('Ficha'), '9')
+
+    expect(screen.getByLabelText('Día')).toHaveValue('05')
+    expect(screen.getByLabelText('Mes')).toHaveValue('01')
+  })
+
   it('un cliente sin ninguna ficha ve el remito con la grilla vacía, sin vencimiento ni sello, y sin poder poner los números', async () => {
     api([])
     render()
@@ -456,8 +481,8 @@ describe('CustomerFichaPage: editar y guardar', () => {
     expect(barra()).not.toBeInTheDocument()
   })
 
-  it('cambiar la fecha no es un cambio para guardar', async () => {
-    api([ficha(3)])
+  it('sin ficha la fecha se puede cambiar, y eso no es un cambio para guardar', async () => {
+    api([])
     const user = userEvent.setup()
     render()
     await screen.findByLabelText('Señor/es')

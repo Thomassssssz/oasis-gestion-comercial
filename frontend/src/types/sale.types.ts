@@ -31,12 +31,11 @@ export type Sale = {
 }
 
 // Lo que se envía para registrar una venta: el precio nunca va, lo pone el servidor.
-// La venta rápida lleva solo medio de pago e ítems; la completa suma cliente, descuento y nota.
+// La venta rápida lleva solo medio de pago e ítems; la completa suma cliente y nota.
 // A crédito no se manda medio de pago (la API lo rechaza).
 export type SaleInput = {
   paymentMethod?: PaymentMethod
   customerId?: number
-  discount?: string
   note?: string
   onCredit?: boolean
   items: { productId: number; quantity: number }[]

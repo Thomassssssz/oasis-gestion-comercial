@@ -26,6 +26,9 @@ import {
 
 const day = new Intl.DateTimeFormat('es-AR', { dateStyle: 'short' })
 
+// Día, mes y año como los casilleros de la fecha del remito.
+const dateParts = (d: Date) => ({ day: String(d.getDate()).padStart(2, '0'), month: String(d.getMonth() + 1).padStart(2, '0'), year: String(d.getFullYear()) })
+
 type Loaded = { customer: Customer; accounts: CreditAccount[]; business: BusinessSettings }
 type Edits = Partial<Record<FieldKey, string>> // lo escrito en el remito que todavía no se guardó
 
@@ -43,11 +46,9 @@ export default function CustomerFichaPage() {
   const [showPay, setShowPay] = useState(false)
   const [selectedId, setSelectedId] = useState<number | null>(null) // ficha elegida a mano; null = la abierta o, si no hay, la última pagada
   const [reload, setReload] = useState(0)
-  // La fecha del remito es la de hoy y se puede cambiar, pero no se guarda: la hoja de papel la lleva a mano.
-  const [date, setDate] = useState(() => {
-    const now = new Date()
-    return { day: String(now.getDate()).padStart(2, '0'), month: String(now.getMonth() + 1).padStart(2, '0'), year: String(now.getFullYear()) }
-  })
+  // Sin ficha, la fecha del remito es la de hoy y se puede cambiar (no se guarda: la hoja de papel la lleva a mano).
+  // Con ficha, es el día en que se abrió y no se cambia (ver `remitoDate`).
+  const [date, setDate] = useState(() => dateParts(new Date()))
 
   useEffect(() => {
     let ignore = false
@@ -256,7 +257,9 @@ export default function CustomerFichaPage() {
         onChange={setField}
         accountFields={account !== null}
         condition={account ? 'CURRENT_ACCOUNT' : null}
-        date={date}
+        // La fecha es la del primer producto que se llevó el cliente: queda antes del vencimiento que figura al pie.
+        date={account ? dateParts(new Date(account.openedAt)) : date}
+        dateLocked={account !== null}
         onDateChange={(part, value) => setDate((previous) => ({ ...previous, [part]: value }))}
         remito={remito}
         dueDate={account?.dueDate ?? null}

@@ -11,6 +11,7 @@ type Props = {
   condition: 'CASH' | 'CURRENT_ACCOUNT' | null // cuál de las dos condiciones de venta se tilda; null = ninguna
   date: { day: string; month: string; year: string }
   onDateChange: (part: 'day' | 'month' | 'year', value: string) => void
+  dateLocked?: boolean // true = la fecha es la de apertura de la ficha y no se escribe a mano
   remito: RemitoTotals
   dueDate: string | null // vencimiento de la ficha abierta
   overdueMonths: number | null // null = no está vencida
@@ -28,7 +29,7 @@ const NO_ACCOUNT_HINT = 'Se puede completar cuando el cliente tiene una ficha ab
 // Ficha formal del comercio (remito "X", documento no válido como factura), armada como la hoja de papel y editable:
 // cada dato que el papel deja escribir se toca y se cambia (el cliente, la ficha, el encabezado del comercio).
 // Los renglones NO se editan: salen de las ventas y de los pagos (D22/D23). Guardar es cosa de la pantalla que la usa.
-export default function RemitoSheet({ values, changed, onChange, accountFields, condition, date, onDateChange, remito, dueDate, overdueMonths, paid = false, closedAt = null, onPayClick }: Props) {
+export default function RemitoSheet({ values, changed, onChange, accountFields, condition, date, onDateChange, dateLocked = false, remito, dueDate, overdueMonths, paid = false, closedAt = null, onPayClick }: Props) {
   const blanks = Math.max(0, REMITO_ROWS - remito.lines.length)
   const mark = (key: FieldKey) => changed.has(key)
   const text = (key: FieldKey, label: string, className?: string, placeholder = '') => (
@@ -105,8 +106,11 @@ export default function RemitoSheet({ values, changed, onChange, accountFields, 
                 maxLength={part === 'year' ? 4 : 2}
                 value={date[part]}
                 onChange={(e) => onDateChange(part, e.target.value.replace(/\D/g, ''))}
+                readOnly={dateLocked}
+                title={dateLocked ? 'Es el día en que se abrió la ficha' : undefined}
                 className={cn(
-                  'rounded-lg border border-black bg-transparent px-1 py-0.5 text-center font-semibold outline-none hover:bg-amber-50 focus:bg-amber-50 print:hover:bg-transparent',
+                  'rounded-lg border border-black bg-transparent px-1 py-0.5 text-center font-semibold outline-none print:hover:bg-transparent',
+                  !dateLocked && 'hover:bg-amber-50 focus:bg-amber-50',
                   part === 'year' ? 'w-14' : 'w-9',
                 )}
               />
