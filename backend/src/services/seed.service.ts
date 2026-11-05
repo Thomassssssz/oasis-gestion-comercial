@@ -1,7 +1,7 @@
 import { Prisma, type PrismaClient } from "../config/prisma.js";
 import { AppError } from "../helpers/errors.js";
 import { addDays, localDate, startOfLocalDay } from "../helpers/report-dates.js";
-import { asMoney, createRandom, generateCustomers, generateProducts, seedCategories } from "../helpers/seed-data.js";
+import { createRandom, generateCustomers, generateProducts, seedCategories } from "../helpers/seed-data.js";
 import { createCategoryRepository } from "../repositories/category.repository.js";
 import { createCreditAccountRepository } from "../repositories/credit-account.repository.js";
 import { createCustomerRepository } from "../repositories/customer.repository.js";
@@ -106,25 +106,18 @@ export async function seedDatabase(prisma: PrismaClient, options: SeedOptions) {
 
   async function sell(customerId: number | undefined, onCredit: boolean) {
     const items: { productId: number; quantity: number }[] = [];
-    let subtotal = 0;
     const wanted = random.pickWeighted([[1, 55], [2, 25], [3, 12], [4, 8]] as const);
     for (let attempt = 0; attempt < 12 && items.length < wanted; attempt++) {
       const product = pickProduct();
       if (items.some((item) => item.productId === product.id)) continue;
       const quantity = random.pickWeighted([[1, 60], [2, 25], [3, 10], [4, 5]] as const);
       items.push({ productId: product.id, quantity });
-      subtotal += product.price * quantity;
     }
-
-    // Descuento solo en ventas completas con cliente: entre 5% y 10%, redondeado hacia abajo a múltiplos de 50.
-    let discount = 0;
-    if (customerId !== undefined && random.chance(0.3)) discount = Math.floor((subtotal * random.int(5, 10)) / 100 / 50) * 50;
 
     const input = saleInputSchema.parse({
       items,
       customerId,
       onCredit,
-      discount: asMoney(discount),
       ...(onCredit ? {} : { paymentMethod: random.pickWeighted([["CASH", 50], ["TRANSFER", 20], ["CARD", 20], ["DIGITAL_WALLET", 10]] as const) }),
     });
 

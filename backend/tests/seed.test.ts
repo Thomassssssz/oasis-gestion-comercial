@@ -38,7 +38,7 @@ describe("seedDatabase", () => {
     expect(await prisma.sale.count({ where: { status: "ANNULLED" } })).toBe(summary.annulled);
     expect(await prisma.sale.count({ where: { onCredit: true } })).toBeGreaterThan(0);
     expect(await prisma.sale.count({ where: { customerId: { not: null }, onCredit: false } })).toBeGreaterThan(0);
-    expect(await prisma.sale.count({ where: { discountAmount: { gt: 0 } } })).toBeGreaterThan(0);
+    expect(await prisma.sale.count({ where: { discountAmount: { gt: 0 } } })).toBe(0); // el comercio ya no hace descuentos (D25)
   });
 
   it("hay fichas vencidas con recargos registrados y pagos parciales que no movieron el vencimiento", async () => {
