@@ -85,6 +85,8 @@ La API usa PostgreSQL a través de Prisma. Con el contenedor de la sección ante
 
 5. Creá tu usuario para entrar al sistema (no hay registro público). Dentro de `backend/`: `npm run user:create -- ana "Ana Propietaria"` (reemplazá el usuario y el nombre por los tuyos). El programa te pide la contraseña dos veces, sin mostrarla en pantalla; tiene que tener al menos 10 caracteres. Repetí el comando para el segundo propietario.
 
+   **Datos de prueba (opcional).** Para probar todo con volumen, dentro de `backend/` corré `npm run db:seed -- ana` (con tu usuario). Carga 12 categorías, 1.000 productos con stock, 50 clientes (parte con crédito autorizado) y unos 75 días de actividad: ventas rápidas y completas, ventas a crédito, pagos parciales, fichas vencidas con recargos, fichas canceladas y alguna venta anulada. **Todo es inventado** (nombres, precios, DNI y teléfonos); los clientes llevan la nota "Dato de prueba (seed)". Solo corre sobre una base **sin** productos, clientes, categorías ni ventas, y no corre en producción. Genera siempre los mismos datos. No escribe en la auditoría. Para volver a empezar hay que vaciar la base de desarrollo (por ejemplo, borrando el volumen de Docker y migrando de nuevo).
+
 El cliente de Prisma se genera solo al correr `npm install` (carpeta `src/generated/`, que no se sube al repositorio).
 El modelo de datos está explicado en `docs/modelo-de-datos.md`.
 

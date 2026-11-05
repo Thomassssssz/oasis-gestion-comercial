@@ -211,3 +211,15 @@ No hay reglas de negocio confirmadas sobre qué reportes quieren los propietario
 - **g) Consulta:** `GET /api/audit` con filtros por usuario, acción, entidad y días (hora de Argentina); más nuevas primero; 100 por defecto, máximo 500. Cualquier usuario con sesión puede consultarla (no hay roles, D4): **a confirmar**.
 - **h) Anulaciones, devoluciones y stock negativo (a confirmar):** hoy una venta no se borra, se anula con motivo y devuelve el stock (D13); un ajuste no puede dejar stock negativo (D12); las devoluciones no existen como operación aparte.
 
+
+## D21 – Datos de prueba (seed)
+
+**Origen:** pedido del autor para probar todo con volumen. Los números (1.000 productos y 50 clientes) son los de dimensionamiento de `CLAUDE.md`; el autor eligió 50 clientes (había pedido 150 por error de tipeo). **Todo lo que genera es inventado**: no es el inventario ni la cartera real de la librería.
+
+- **a) Cómo se carga:** `npm run db:seed -- <usuario>`. Pasa por los **mismos servicios** que usa la API (productos, clientes, ventas, cuentas corrientes), no escribe las tablas a mano: así se cumplen las reglas de negocio (stock, descuento, fichas, vencimiento, recargos) y los datos quedan coherentes. Solo el stock inicial y la fecha de los movimientos de stock de cada venta se escriben directo, porque la API los fecha con la hora actual.
+- **b) Actividad simulada:** unos 75 días hacia atrás, día por día, con un reloj que avanza (horario comercial de 9 a 20 hs de Argentina). Más ventas los días hábiles y menos los domingos; unos productos se venden mucho más que otros; ventas con cliente y descuento; ventas a crédito; pagos parciales y totales; clientes "que se atrasan" para que haya fichas vencidas; recargos registrados en parte de ellas; algunas ventas anuladas; unos productos y clientes dados de baja. Las operaciones que las reglas rechazan (por ejemplo, sin stock) se saltean.
+- **c) Repetible:** usa un generador de números al azar con semilla, así que dos personas obtienen los mismos datos.
+- **d) Protecciones:** se niega a correr si la base ya tiene productos, clientes, categorías o ventas (no mezcla datos de prueba con datos cargados por alguien), y no corre con `NODE_ENV=production`.
+- **e) Datos ficticios:** los DNI empiezan con 98 y los clientes llevan la nota "Dato de prueba (seed)". Los precios son inventados, redondeados a múltiplos de 50 pesos. Los teléfonos tienen formato de Formosa pero son al azar: podrían coincidir con uno real, no se deben usar para contactar a nadie.
+- **f) Auditoría:** no genera anotaciones, porque no pasa por la API (el middleware de D20 vive en las rutas). La pantalla Auditoría arranca vacía hasta que se haga una operación desde la app.
+
