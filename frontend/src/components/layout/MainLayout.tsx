@@ -12,6 +12,7 @@ const sections = [
   { to: '/inventario', label: 'Inventario' },
   { to: '/ventas', label: 'Ventas' },
   { to: '/clientes', label: 'Clientes' },
+  { to: '/proveedores', label: 'Proveedores' },
 ]
 
 // Estructura de las pantallas con sesión abierta: cabecera, menú de secciones y, abajo, la pantalla elegida (Outlet).
@@ -51,7 +52,7 @@ export default function MainLayout() {
     <div className="mx-auto max-w-5xl px-4 py-6">
       <Header apiState={apiState} onRetry={retry} user={user} onLogout={() => void logout()} />
 
-      <nav aria-label="Secciones" className="mb-6 flex gap-2">
+      <nav aria-label="Secciones" className="mb-6 flex flex-wrap gap-2">
         {sections.map(({ to, label }) => (
           <NavLink
             key={to}
