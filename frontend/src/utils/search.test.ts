@@ -46,10 +46,6 @@ describe('filterByName', () => {
     expect(filterByName(items, '  ')).toBe(items)
   })
 
-  it('conserva siempre el elemento indicado, aunque no coincida', () => {
-    expect(filterByName(items, 'lapiz', 1).map((i) => i.id)).toEqual([1, 2])
-  })
-
   it('sin coincidencias devuelve una lista vacía', () => {
     expect(filterByName(items, 'zzz')).toEqual([])
   })

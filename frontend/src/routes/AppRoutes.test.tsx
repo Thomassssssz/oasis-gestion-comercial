@@ -170,6 +170,25 @@ describe('rutas y sesión', () => {
     expect(screen.getByRole('button', { name: 'Ingresar' })).toBeEnabled()
   })
 
+  it('el ojito muestra y oculta la contraseña escrita, y no la envía ni la cambia', async () => {
+    const { calls } = mockApi({ 'GET /api/auth/me': unauthorized, 'POST /api/auth/login': () => ana, ...screens })
+    renderAt('/login')
+    await screen.findByRole('button', { name: 'Ingresar' })
+    fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'clave-larga-123' } })
+    expect(screen.getByLabelText('Contraseña')).toHaveAttribute('type', 'password')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mostrar contraseña' }))
+    expect(screen.getByLabelText('Contraseña')).toHaveAttribute('type', 'text')
+    expect(screen.getByLabelText('Contraseña')).toHaveValue('clave-larga-123')
+    expect(screen.getByRole('button', { name: 'Ocultar contraseña' })).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ocultar contraseña' }))
+    expect(screen.getByLabelText('Contraseña')).toHaveAttribute('type', 'password')
+
+    // El ojito no envía el formulario.
+    expect(calls.some((c) => c.path === '/api/auth/login')).toBe(false)
+  })
+
   it('con demasiados intentos muestra el aviso de la API', async () => {
     mockApi({
       'GET /api/auth/me': unauthorized,

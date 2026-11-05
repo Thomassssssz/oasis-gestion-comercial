@@ -2,7 +2,7 @@ import { Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import MovementForm from '@/components/inventory/MovementForm'
 import { Button } from '@/components/ui/button'
-import { SearchInput } from '@/components/ui/search-input'
+import { SearchPicker } from '@/components/ui/search-picker'
 import { Select } from '@/components/ui/select'
 import { listProducts } from '@/services/products/product.service'
 import { listMovements } from '@/services/stock-movements/stock-movement.service'
@@ -76,15 +76,22 @@ export default function InventoryPage() {
       {creating && <MovementForm products={products} onSaved={handleSaved} onCancel={() => setCreating(false)} />}
 
       <div className="mb-4 grid max-w-2xl gap-2 sm:grid-cols-2">
-        <SearchInput label="Buscar producto por nombre" placeholder="Buscar producto por nombre" value={productSearch} onChange={(e) => setProductSearch(e.target.value)} />
         <Select aria-label="Filtrar por producto" value={productFilter} onChange={(e) => setProductFilter(e.target.value)}>
           <option value="">Todos los productos</option>
-          {filterByName(products, productSearch, productFilter ? Number(productFilter) : null).map((product) => (
+          {products.map((product) => (
             <option key={product.id} value={product.id}>
               {product.name}
             </option>
           ))}
         </Select>
+        <SearchPicker
+          label="Buscar producto por nombre"
+          value={productSearch}
+          onChange={setProductSearch}
+          results={filterByName(products, productSearch).map((product) => ({ id: product.id, label: product.name }))}
+          onPick={(id) => setProductFilter(String(id))}
+          emptyText="Ningún producto coincide"
+        />
       </div>
 
       {error && (

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { SearchInput } from '@/components/ui/search-input'
+import { SearchPicker } from '@/components/ui/search-picker'
 import { Select } from '@/components/ui/select'
 import { registerMovement } from '@/services/stock-movements/stock-movement.service'
 import type { Product } from '@/types/product.types'
@@ -51,21 +51,30 @@ export default function MovementForm({ products, onSaved, onCancel }: Props) {
     <form onSubmit={handleSubmit} className="mb-6 grid gap-3 rounded-md border border-border bg-white p-4 sm:grid-cols-2">
       <h3 className="text-lg font-semibold sm:col-span-2">Nuevo movimiento de stock</h3>
 
-      <div className="grid gap-1 text-sm sm:col-span-2">
-        <SearchInput label="Buscar producto por nombre" placeholder="Buscar producto por nombre" value={productSearch} onChange={(e) => setProductSearch(e.target.value)} />
-      </div>
-
-      <label className="grid gap-1 text-sm sm:col-span-2">
+      <label className="grid gap-1 text-sm">
         Producto
         <Select value={productId} onChange={(e) => setProductId(e.target.value)}>
-          <option value="">{productSearch.trim() && filterByName(products, productSearch, null).length === 0 ? 'Ningún producto coincide' : 'Elegí un producto'}</option>
-          {filterByName(products, productSearch, productId ? Number(productId) : null).map((product) => (
+          <option value="">Elegí un producto</option>
+          {products.map((product) => (
             <option key={product.id} value={product.id}>
               {product.name} (stock {product.stock}){product.active ? '' : ' – de baja'}
             </option>
           ))}
         </Select>
       </label>
+      <SearchPicker
+        className="self-end"
+        label="Buscar producto por nombre"
+        value={productSearch}
+        onChange={setProductSearch}
+        results={filterByName(products, productSearch).map((product) => ({
+          id: product.id,
+          label: product.name,
+          hint: `stock ${product.stock}${product.active ? '' : ' · de baja'}`,
+        }))}
+        onPick={(id) => setProductId(String(id))}
+        emptyText="Ningún producto coincide"
+      />
 
       <label className="grid gap-1 text-sm">
         Tipo de movimiento

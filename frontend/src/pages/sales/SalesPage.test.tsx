@@ -235,50 +235,95 @@ describe('SalesPage – nueva venta', () => {
 })
 
 describe('SalesPage – buscar producto por nombre', () => {
-  const opciones = () => within(screen.getByLabelText('Agregar producto')).getAllByRole('option').map((o) => o.textContent)
+  const buscador = () => screen.findByRole('searchbox', { name: 'Buscar producto por nombre' })
+  const resultados = () => screen.queryByRole('list', { name: 'Resultados de buscar producto por nombre' })
 
-  it('tiene un buscador con lupa además del desplegable, que sigue funcionando', async () => {
+  it('tiene el desplegable a la izquierda y el buscador con lupa a la derecha, y el desplegable sigue funcionando', async () => {
     mockApi(baseRoutes)
     const user = userEvent.setup()
     render(<SalesPage />)
 
-    expect(await screen.findByRole('searchbox', { name: 'Buscar producto por nombre' })).toBeInTheDocument()
+    const caja = await buscador()
+    const desplegable = screen.getByLabelText('Agregar producto')
+    expect(desplegable.compareDocumentPosition(caja) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     await agregar(user, 10)
 
     expect(screen.getByRole('button', { name: 'Quitar Cuaderno A4' })).toBeInTheDocument()
   })
 
-  it('al escribir deja en el desplegable solo los productos que coinciden, sin importar tildes ni mayúsculas', async () => {
+  it('sin escribir nada no hay lista de resultados, y el desplegable muestra todos los productos', async () => {
     mockApi(baseRoutes)
-    const user = userEvent.setup()
     render(<SalesPage />)
-    await screen.findByRole('option', { name: /Lápiz negro/ })
+    await buscador()
 
-    await user.type(screen.getByRole('searchbox', { name: 'Buscar producto por nombre' }), 'LAPIZ')
-
-    expect(opciones()).toEqual(['Agregar producto…', expect.stringContaining('Lápiz negro')])
+    expect(resultados()).not.toBeInTheDocument()
+    expect(within(screen.getByLabelText('Agregar producto')).getAllByRole('option')).toHaveLength(1 + 3)
   })
 
-  it('borrar lo escrito vuelve a mostrar todos', async () => {
+  it('al escribir muestra debajo todos los que coinciden (sin importar tildes ni mayúsculas) con su precio y stock', async () => {
     mockApi(baseRoutes)
     const user = userEvent.setup()
     render(<SalesPage />)
-    const buscador = await screen.findByRole('searchbox', { name: 'Buscar producto por nombre' })
 
-    await user.type(buscador, 'lap')
-    await user.clear(buscador)
+    await user.type(await buscador(), 'LAPIZ')
 
-    expect(opciones()).toHaveLength(1 + 3)
+    const lista = resultados()!
+    expect(within(lista).getAllByRole('listitem')).toHaveLength(1)
+    expect(within(lista).getByRole('button', { name: /Lápiz negro/ })).toHaveTextContent(/stock/)
+    expect(within(screen.getByLabelText('Agregar producto')).getAllByRole('option')).toHaveLength(1 + 3) // el desplegable no se toca
   })
 
-  it('sin coincidencias lo dice en el desplegable', async () => {
+  it('tocar un resultado lo agrega al carrito y limpia la búsqueda', async () => {
+    mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    const caja = await buscador()
+
+    await user.type(caja, 'lapiz')
+    await user.click(within(resultados()!).getByRole('button', { name: /Lápiz negro/ }))
+
+    expect(screen.getByRole('button', { name: 'Quitar Lápiz negro' })).toBeInTheDocument()
+    expect(caja).toHaveValue('')
+    expect(resultados()).not.toBeInTheDocument()
+  })
+
+  it('un producto sin stock se ve en los resultados pero no se puede elegir', async () => {
     mockApi(baseRoutes)
     const user = userEvent.setup()
     render(<SalesPage />)
 
-    await user.type(await screen.findByRole('searchbox', { name: 'Buscar producto por nombre' }), 'zzz')
+    await user.type(await buscador(), 'goma')
 
-    expect(opciones()).toEqual(['Ningún producto coincide'])
+    const goma = within(resultados()!).getByRole('button', { name: /Goma/ })
+    expect(goma).toBeDisabled()
+    expect(goma).toHaveTextContent('sin stock')
+  })
+
+  it('borrar lo escrito, o Escape, cierra la lista', async () => {
+    mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    const caja = await buscador()
+
+    await user.type(caja, 'lap')
+    expect(resultados()).toBeInTheDocument()
+    await user.clear(caja)
+    expect(resultados()).not.toBeInTheDocument()
+
+    await user.type(caja, 'lap{Escape}')
+    expect(caja).toHaveValue('')
+    expect(resultados()).not.toBeInTheDocument()
+  })
+
+  it('sin coincidencias lo dice en la lista', async () => {
+    mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<SalesPage />)
+
+    await user.type(await buscador(), 'zzz')
+
+    expect(screen.getByRole('status')).toHaveTextContent('Ningún producto coincide')
+    expect(resultados()).not.toBeInTheDocument()
   })
 
   it('sin productos cargados y sin escribir nada el desplegable sigue pidiendo agregar un producto', async () => {
@@ -431,21 +476,45 @@ describe('SalesPage – venta completa', () => {
     expect(screen.getByTestId('cart-total')).toHaveTextContent(/\$\s?1\.500,50/)
   })
 
-  it('la lupa filtra la lista de clientes por nombre (sin tildes ni mayúsculas) y conserva el elegido', async () => {
+  it('el desplegable de clientes va a la izquierda y siempre trae a todos; la lupa está a la derecha', async () => {
+    mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    await screen.findByRole('option', { name: 'Pedro Sosa' })
+
+    const desplegable = screen.getByLabelText('Cliente (opcional)')
+    const caja = screen.getByLabelText('Buscar cliente por nombre')
+    expect(desplegable.compareDocumentPosition(caja) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    await user.type(caja, 'gomez')
+    expect(within(desplegable).getAllByRole('option')).toHaveLength(1 + 2) // Sin cliente, María y Pedro
+  })
+
+  it('al escribir en la lupa salen debajo todos los clientes que coinciden, sin tocar el desplegable', async () => {
     mockApi(baseRoutes)
     const user = userEvent.setup()
     render(<SalesPage />)
     await screen.findByRole('option', { name: 'Pedro Sosa' })
 
     await user.type(screen.getByLabelText('Buscar cliente por nombre'), 'GOMEZ')
-    expect(screen.getByRole('option', { name: 'María Gómez (crédito autorizado)' })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: 'Pedro Sosa' })).not.toBeInTheDocument()
 
-    await user.selectOptions(screen.getByLabelText('Cliente (opcional)'), 'María Gómez (crédito autorizado)')
-    await user.clear(screen.getByLabelText('Buscar cliente por nombre'))
-    await user.type(screen.getByLabelText('Buscar cliente por nombre'), 'pedro')
-    expect(screen.getByLabelText('Cliente (opcional)')).toHaveValue('5') // el elegido no desaparece
-    expect(screen.getByRole('option', { name: 'Pedro Sosa' })).toBeInTheDocument()
+    const lista = screen.getByRole('list', { name: 'Resultados de buscar cliente por nombre' })
+    expect(within(lista).getAllByRole('listitem')).toHaveLength(1)
+    expect(within(lista).getByRole('button', { name: /María Gómez/ })).toHaveTextContent('crédito autorizado')
+  })
+
+  it('tocar un cliente de los resultados lo elige, limpia la búsqueda y habilita el crédito si corresponde', async () => {
+    mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    await screen.findByRole('option', { name: 'Pedro Sosa' })
+
+    await user.type(screen.getByLabelText('Buscar cliente por nombre'), 'maria')
+    await user.click(screen.getByRole('button', { name: /María Gómez/ }))
+
+    expect(screen.getByLabelText('Cliente (opcional)')).toHaveValue('5')
+    expect(screen.getByLabelText('Buscar cliente por nombre')).toHaveValue('')
+    expect(screen.getByLabelText(/Venta a crédito/)).toBeEnabled()
   })
 
   it('si ningún cliente coincide lo avisa en la lista', async () => {
@@ -456,7 +525,7 @@ describe('SalesPage – venta completa', () => {
 
     await user.type(screen.getByLabelText('Buscar cliente por nombre'), 'zzz')
 
-    expect(screen.getByRole('option', { name: 'Ningún cliente coincide' })).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Ningún cliente coincide')
   })
 
   it('manda cliente y nota; no manda lo que quedó vacío', async () => {

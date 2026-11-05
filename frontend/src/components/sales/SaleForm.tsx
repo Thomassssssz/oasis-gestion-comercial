@@ -2,7 +2,7 @@ import { Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { SearchInput } from '@/components/ui/search-input'
+import { SearchPicker } from '@/components/ui/search-picker'
 import { Select } from '@/components/ui/select'
 import { createSale } from '@/services/sales/sale.service'
 import type { Customer } from '@/types/customer.types'
@@ -46,7 +46,7 @@ export default function SaleForm({ products, customers, onSaved }: Props) {
     (sum, line) => sum + cents(byId.get(line.productId)?.salePrice ?? '0') * (Number(line.quantity) || 0),
     0,
   )
-  const shownCustomers = filterByName(customers, customerSearch, customerId ? Number(customerId) : null)
+  const shownCustomers = filterByName(customers, customerSearch)
   const customer = customers.find((c) => String(c.id) === customerId)
   const canUseCredit = customer?.creditAuthorized === true
 
@@ -103,11 +103,30 @@ export default function SaleForm({ products, customers, onSaved }: Props) {
       <h3 className="mb-3 text-lg font-semibold">Nueva venta</h3>
 
       <div className="mb-4 grid max-w-2xl gap-2 sm:grid-cols-2">
-        <SearchInput
+        <Select
+          aria-label="Agregar producto"
+          value=""
+          onChange={(e) => e.target.value && addProduct(Number(e.target.value))}
+        >
+          <option value="">Agregar producto…</option>
+          {products.map((product) => (
+            <option key={product.id} value={product.id} disabled={product.stock <= 0}>
+              {product.name} – {peso.format(Number(product.salePrice))} (stock {product.stock})
+            </option>
+          ))}
+        </Select>
+        <SearchPicker
           label="Buscar producto por nombre"
-          placeholder="Buscar producto por nombre"
           value={productSearch}
-          onChange={(e) => setProductSearch(e.target.value)}
+          onChange={setProductSearch}
+          results={matches.map((product) => ({
+            id: product.id,
+            label: product.name,
+            hint: product.stock > 0 ? `${peso.format(Number(product.salePrice))} · stock ${product.stock}` : 'sin stock',
+            disabled: product.stock <= 0,
+          }))}
+          onPick={addProduct}
+          emptyText="Ningún producto coincide"
           onKeyDown={(e) => {
             // Enter no envía la venta: si queda un solo producto con stock, lo agrega y deja la búsqueda lista para el siguiente.
             if (e.key !== 'Enter') return
@@ -119,18 +138,6 @@ export default function SaleForm({ products, customers, onSaved }: Props) {
             }
           }}
         />
-        <Select
-          aria-label="Agregar producto"
-          value=""
-          onChange={(e) => e.target.value && addProduct(Number(e.target.value))}
-        >
-          <option value="">{productSearch.trim() && matches.length === 0 ? 'Ningún producto coincide' : 'Agregar producto…'}</option>
-          {matches.map((product) => (
-            <option key={product.id} value={product.id} disabled={product.stock <= 0}>
-              {product.name} – {peso.format(Number(product.salePrice))} (stock {product.stock})
-            </option>
-          ))}
-        </Select>
       </div>
 
       {cart.length === 0 ? (
@@ -195,8 +202,8 @@ export default function SaleForm({ products, customers, onSaved }: Props) {
         <label className="grid gap-1 text-sm">
           Cliente (opcional)
           <Select value={customerId} onChange={(e) => handleCustomerChange(e.target.value)}>
-            <option value="">{customerSearch.trim() && shownCustomers.length === 0 ? 'Ningún cliente coincide' : 'Sin cliente'}</option>
-            {shownCustomers.map((c) => (
+            <option value="">Sin cliente</option>
+            {customers.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
                 {c.creditAuthorized ? ' (crédito autorizado)' : ''}
@@ -204,14 +211,15 @@ export default function SaleForm({ products, customers, onSaved }: Props) {
             ))}
           </Select>
         </label>
-        <div className="self-end">
-          <SearchInput
-            label="Buscar cliente por nombre"
-            placeholder="Buscar cliente por nombre"
-            value={customerSearch}
-            onChange={(e) => setCustomerSearch(e.target.value)}
-          />
-        </div>
+        <SearchPicker
+          className="self-end"
+          label="Buscar cliente por nombre"
+          value={customerSearch}
+          onChange={setCustomerSearch}
+          results={shownCustomers.map((c) => ({ id: c.id, label: c.name, hint: c.creditAuthorized ? 'crédito autorizado' : undefined }))}
+          onPick={(id) => handleCustomerChange(String(id))}
+          emptyText="Ningún cliente coincide"
+        />
         <label className="grid gap-1 text-sm sm:col-span-2">
           Nota (opcional)
           <Input
