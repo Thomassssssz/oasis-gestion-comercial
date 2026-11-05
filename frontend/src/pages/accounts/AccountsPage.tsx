@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
+import AccountDetail from '@/components/accounts/AccountDetail'
 import { Button } from '@/components/ui/button'
 import { listAccounts } from '@/services/accounts/account.service'
 import type { AccountStatus, CreditAccount } from '@/types/account.types'
 import { describeError } from '@/utils/errors'
-import { dateTime, peso } from '@/utils/format'
+import { peso } from '@/utils/format'
 
 const day = new Intl.DateTimeFormat('es-AR', { dateStyle: 'short' })
 
@@ -14,6 +15,8 @@ export default function AccountsPage() {
   const [accounts, setAccounts] = useState<CreditAccount[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<number | null>(null)
+  const [reload, setReload] = useState(0)
+  const [notice, setNotice] = useState<string | null>(null) // confirmación de un pago o de recargos aplicados
 
   useEffect(() => {
     let ignore = false
@@ -30,12 +33,13 @@ export default function AccountsPage() {
     return () => {
       ignore = true
     }
-  }, [status])
+  }, [status, reload])
 
   function changeStatus(next: AccountStatus) {
     setStatus(next)
     setAccounts(null)
     setExpanded(null)
+    setNotice(null)
   }
 
   return (
@@ -55,6 +59,11 @@ export default function AccountsPage() {
         </Button>
       </div>
 
+      {notice && (
+        <p role="status" className="mb-4 rounded-md bg-emerald-100 px-3 py-2 text-sm text-emerald-800">
+          {notice}
+        </p>
+      )}
       {error && (
         <p role="alert" className="mb-4 rounded-md bg-red-100 px-3 py-2 text-sm text-red-800">
           {error}
@@ -88,6 +97,10 @@ export default function AccountsPage() {
                   account={account}
                   open={expanded === account.id}
                   onToggle={() => setExpanded(expanded === account.id ? null : account.id)}
+                  onChanged={(message) => {
+                    setNotice(message)
+                    setReload((n) => n + 1)
+                  }}
                 />
               ))}
             </tbody>
@@ -98,7 +111,17 @@ export default function AccountsPage() {
   )
 }
 
-function AccountRows({ account, open, onToggle }: { account: CreditAccount; open: boolean; onToggle: () => void }) {
+function AccountRows({
+  account,
+  open,
+  onToggle,
+  onChanged,
+}: {
+  account: CreditAccount
+  open: boolean
+  onToggle: () => void
+  onChanged: (message: string) => void
+}) {
   return (
     <>
       <tr>
@@ -107,7 +130,14 @@ function AccountRows({ account, open, onToggle }: { account: CreditAccount; open
         <td className="whitespace-nowrap px-3 py-2">
           {day.format(new Date(account.status === 'OPEN' ? account.dueDate : (account.closedAt ?? account.dueDate)))}
         </td>
-        <td className="px-3 py-2 text-right">{peso.format(Number(account.balance))}</td>
+        <td className="px-3 py-2 text-right">
+          {peso.format(Number(account.balance))}
+          {Number(account.pendingSurchargesTotal) > 0 && (
+            <span className="block text-xs text-muted-foreground">
+              + {peso.format(Number(account.pendingSurchargesTotal))} de recargos
+            </span>
+          )}
+        </td>
         <td className="px-3 py-2">
           {account.status === 'CANCELLED' ? (
             'Cancelada'
@@ -124,25 +154,17 @@ function AccountRows({ account, open, onToggle }: { account: CreditAccount; open
             size="sm"
             variant="outline"
             aria-expanded={open}
-            aria-label={`${open ? 'Ocultar' : 'Ver'} ventas de ${account.customer.name}`}
+            aria-label={`${open ? 'Ocultar' : 'Ver'} detalle de ${account.customer.name}`}
             onClick={onToggle}
           >
-            {open ? 'Ocultar' : 'Ver ventas'}
+            {open ? 'Ocultar' : 'Ver detalle'}
           </Button>
         </td>
       </tr>
       {open && (
         <tr className="bg-muted/40">
           <td colSpan={6} className="px-3 py-2">
-            <ul className="grid gap-1 text-sm">
-              {account.sales.map((sale) => (
-                <li key={sale.id} className={sale.status === 'ANNULLED' ? 'text-muted-foreground line-through' : undefined}>
-                  Venta #{sale.id} · {dateTime.format(new Date(sale.createdAt))} · {peso.format(Number(sale.total))}
-                  {sale.status === 'ANNULLED' ? ' (anulada)' : ''}
-                  {sale.note ? ` · ${sale.note}` : ''}
-                </li>
-              ))}
-            </ul>
+            <AccountDetail account={account} onChanged={onChanged} />
           </td>
         </tr>
       )}
