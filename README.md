@@ -82,6 +82,8 @@ La API usa PostgreSQL a través de Prisma. Con el contenedor de la sección ante
 3. Aplicá las migraciones a la base de desarrollo, dentro de `backend/`: `npm run db:migrate`.
 4. Aplicá las migraciones a la base de pruebas: `npm run db:test:deploy`.
 
+5. Creá tu usuario para entrar al sistema (no hay registro público). Dentro de `backend/`: `npm run user:create -- ana "Ana Propietaria"` (reemplazá el usuario y el nombre por los tuyos). El programa te pide la contraseña dos veces, sin mostrarla en pantalla; tiene que tener al menos 10 caracteres. Repetí el comando para el segundo propietario.
+
 El cliente de Prisma se genera solo al correr `npm install` (carpeta `src/generated/`, que no se sube al repositorio).
 El modelo de datos está explicado en `docs/modelo-de-datos.md`.
 
