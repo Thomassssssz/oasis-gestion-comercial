@@ -11,6 +11,7 @@ const sections = [
   { to: '/categorias', label: 'Categorías' },
   { to: '/inventario', label: 'Inventario' },
   { to: '/ventas', label: 'Ventas' },
+  { to: '/clientes', label: 'Clientes' },
 ]
 
 // Estructura de las pantallas con sesión abierta: cabecera, menú de secciones y, abajo, la pantalla elegida (Outlet).

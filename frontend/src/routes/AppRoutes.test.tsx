@@ -12,6 +12,7 @@ const screens = {
   'GET /api/health': () => ({ status: 'ok' }),
   'GET /api/products': () => [],
   'GET /api/categories': () => [],
+  'GET /api/customers': () => [],
 }
 
 function renderAt(path: string) {
@@ -64,6 +65,22 @@ describe('rutas y sesión', () => {
     renderAt('/')
 
     expect(await screen.findByRole('heading', { name: 'Productos' })).toBeInTheDocument()
+  })
+
+  it('la sección Clientes está en el menú y lleva a su pantalla', async () => {
+    mockApi({ 'GET /api/auth/me': () => ana, ...screens })
+    renderAt('/productos')
+
+    fireEvent.click(await screen.findByRole('link', { name: 'Clientes' }))
+
+    expect(await screen.findByRole('heading', { name: 'Clientes' })).toBeInTheDocument()
+  })
+
+  it('sin sesión, /clientes manda al login', async () => {
+    mockApi({ 'GET /api/auth/me': unauthorized, ...screens })
+    renderAt('/clientes')
+
+    expect(await screen.findByRole('button', { name: 'Ingresar' })).toBeInTheDocument()
   })
 
   it('una dirección que no existe muestra "Página no encontrada"', async () => {
