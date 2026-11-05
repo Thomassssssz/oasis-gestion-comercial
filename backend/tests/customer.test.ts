@@ -154,6 +154,48 @@ describe("POST /api/customers", () => {
   });
 });
 
+describe("datos del remito: localidad, condición frente al IVA y CUIT (D23)", () => {
+  it("se guardan al crear y salen en la respuesta", async () => {
+    const response = await create({ name: "Ana", locality: "  Formosa ", taxCondition: "MONOTAX", cuit: "20-12345678-9" });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({ locality: "Formosa", taxCondition: "MONOTAX", cuit: "20123456789" });
+  });
+
+  it("son opcionales: sin datos quedan vacíos, y los textos vacíos cuentan como sin dato", async () => {
+    expect((await create({ name: "Juan" })).body).toMatchObject({ locality: null, taxCondition: null, cuit: null });
+    expect((await create({ name: "Juan", locality: "  ", taxCondition: null, cuit: "" })).body).toMatchObject({ locality: null, taxCondition: null, cuit: null });
+  });
+
+  it.each(["CONSUMER", "EXEMPT", "REGISTERED", "MONOTAX"])("acepta la condición %s", async (taxCondition) => {
+    expect((await create({ name: "Ana", taxCondition })).body.taxCondition).toBe(taxCondition);
+  });
+
+  it.each([
+    ["condición inventada", { taxCondition: "OTRA" }],
+    ["CUIT de 10 dígitos", { cuit: "2012345678" }],
+    ["CUIT con letras", { cuit: "20-1234567A-9" }],
+    ["CUIT que no es texto", { cuit: 20123456789 }],
+    ["localidad demasiado larga", { locality: "x".repeat(101) }],
+  ])("rechaza %s", async (_name, extra) => {
+    const response = await create({ name: "Ana", ...extra });
+
+    expect(response.status).toBe(400);
+    expect(await prisma.customer.count()).toBe(0);
+  });
+
+  it("al editar se reemplazan junto con el resto de los datos (lo que no se envía queda vacío)", async () => {
+    const { body } = await create({ name: "Ana", locality: "Formosa", taxCondition: "EXEMPT", cuit: "20123456789" });
+    const base = { name: "Ana", creditAuthorized: false, active: true };
+
+    const changed = await agent.put(`/api/customers/${body.id}`).send({ ...base, locality: "Clorinda", taxCondition: "REGISTERED", cuit: "30-71234567-8" });
+    expect(changed.body).toMatchObject({ locality: "Clorinda", taxCondition: "REGISTERED", cuit: "30712345678" });
+
+    const cleared = await agent.put(`/api/customers/${body.id}`).send(base);
+    expect(cleared.body).toMatchObject({ locality: null, taxCondition: null, cuit: null });
+  });
+});
+
 describe("GET /api/customers", () => {
   beforeEach(async () => {
     await prisma.customer.createMany({

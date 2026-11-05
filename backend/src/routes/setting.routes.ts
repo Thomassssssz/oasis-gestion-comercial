@@ -11,6 +11,8 @@ export function createSettingRouter(prisma: PrismaClient) {
 
   router.get("/", controller.get);
   router.put("/", controller.update);
+  router.get("/business", controller.getBusiness);
+  router.put("/business", controller.updateBusiness);
 
   return router;
 }

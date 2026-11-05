@@ -487,6 +487,33 @@ describe("esquema: pagos y recargos de las fichas", () => {
   });
 });
 
+describe("esquema: datos del remito (D23)", () => {
+  it("el CUIT del cliente y del comercio son 11 dígitos, y los textos opcionales no pueden ser solo espacios", async () => {
+    await resetDatabase(prisma);
+    await expect(prisma.customer.create({ data: { name: "Ana", cuit: "1234567890" } })).rejects.toThrow();
+    await expect(prisma.customer.create({ data: { name: "Ana", cuit: "2012345678A" } })).rejects.toThrow();
+    await expect(prisma.customer.create({ data: { name: "Ana", locality: "  " } })).rejects.toThrow();
+    await expect(prisma.customer.create({ data: { name: "Ana", cuit: "20123456789", locality: "Formosa", taxCondition: "MONOTAX" } })).resolves.toBeTruthy();
+
+    await expect(prisma.setting.create({ data: { id: 1, businessCuit: "123" } })).rejects.toThrow();
+    await expect(prisma.setting.create({ data: { id: 1, businessName: " " } })).rejects.toThrow();
+    await expect(prisma.setting.create({ data: { id: 1, businessOwner: " " } })).rejects.toThrow();
+    await expect(prisma.setting.create({ data: { id: 1, businessAddress: " " } })).rejects.toThrow();
+    await expect(prisma.setting.create({ data: { id: 1, businessGrossIncome: " " } })).rejects.toThrow();
+    await expect(prisma.setting.create({ data: { id: 1, businessCuit: "20111111111", businessTaxCondition: "EXEMPT" } })).resolves.toBeTruthy();
+  });
+
+  it("los números del remito de una ficha no pueden ser solo espacios", async () => {
+    await resetDatabase(prisma);
+    const customer = await prisma.customer.create({ data: { name: "Ana", creditAuthorized: true } });
+    const data = { customerId: customer.id, openedAt: new Date("2026-03-10T15:00:00Z"), dueDate: new Date("2026-04-10T15:00:00Z") };
+
+    await expect(prisma.creditAccount.create({ data: { ...data, number: " " } })).rejects.toThrow();
+    await expect(prisma.creditAccount.create({ data: { ...data, remitoNumber: "  " } })).rejects.toThrow();
+    await expect(prisma.creditAccount.create({ data: { ...data, number: "1", remitoNumber: "0001-1" } })).resolves.toBeTruthy();
+  });
+});
+
 describe("esquema: auditoría", () => {
   async function seedEntry() {
     const user = await prisma.user.create({ data: { username: "ana", fullName: "Ana", passwordHash: "x" } });

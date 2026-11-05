@@ -114,3 +114,87 @@ describe("PUT /api/settings", () => {
     expect(await prisma.setting.count()).toBe(1);
   });
 });
+
+describe("datos del comercio para el remito (/api/settings/business)", () => {
+  const full = {
+    name: "Comercio de prueba",
+    owner: "Titular de prueba",
+    address: "Calle 1\nFormosa",
+    taxCondition: "EXEMPT",
+    cuit: "20-11111111-1",
+    grossIncome: "123-456",
+    activityStart: "2015-03-01",
+  };
+
+  it("sin sesión responde 401", async () => {
+    expect((await request(app).get("/api/settings/business")).status).toBe(401);
+    expect((await request(app).put("/api/settings/business").send(full)).status).toBe(401);
+  });
+
+  it("al principio está todo vacío: no se inventa ningún dato del comercio", async () => {
+    const response = await agent.get("/api/settings/business");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      name: null,
+      owner: null,
+      address: null,
+      taxCondition: null,
+      cuit: null,
+      grossIncome: null,
+      activityStart: null,
+      updatedBy: null,
+    });
+  });
+
+  it("guarda los datos (el CUIT solo con dígitos, la fecha como AAAA-MM-DD) y los devuelve en la consulta siguiente", async () => {
+    const response = await agent.put("/api/settings/business").send(full);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ ...full, cuit: "20111111111", updatedBy: { fullName: expect.any(String) } });
+    expect((await agent.get("/api/settings/business")).body).toMatchObject({ ...full, cuit: "20111111111", activityStart: "2015-03-01" });
+  });
+
+  it("reemplaza todos los datos: lo que no se envía queda vacío", async () => {
+    await agent.put("/api/settings/business").send(full);
+
+    const response = await agent.put("/api/settings/business").send({ name: "Otro nombre" });
+
+    expect(response.body).toMatchObject({ name: "Otro nombre", owner: null, address: null, taxCondition: null, cuit: null, grossIncome: null, activityStart: null });
+  });
+
+  it("no toca el recargo por mora, y cambiar el recargo no borra los datos del comercio", async () => {
+    await agent.put("/api/settings").send({ lateFeePercent: "9" });
+    await agent.put("/api/settings/business").send(full);
+    expect((await agent.get("/api/settings")).body.lateFeePercent).toBe("9.00");
+
+    await agent.put("/api/settings").send({ lateFeePercent: "6" });
+    expect((await agent.get("/api/settings/business")).body.name).toBe("Comercio de prueba");
+    expect(await prisma.setting.count()).toBe(1);
+  });
+
+  it("trata los textos vacíos como sin dato y recorta espacios", async () => {
+    const response = await agent.put("/api/settings/business").send({ name: "  Oasis  ", owner: "   ", cuit: "", activityStart: "" });
+
+    expect(response.body).toMatchObject({ name: "Oasis", owner: null, cuit: null, activityStart: null });
+  });
+
+  it.each([
+    ["CUIT corto", { cuit: "1234" }],
+    ["condición inventada", { taxCondition: "OTRA" }],
+    ["fecha con otro formato", { activityStart: "01/03/2015" }],
+    ["fecha que no existe", { activityStart: "2015-02-31" }],
+    ["nombre demasiado largo", { name: "x".repeat(101) }],
+    ["domicilio demasiado largo", { address: "x".repeat(301) }],
+  ])("rechaza %s y no guarda nada", async (_name, extra) => {
+    const response = await agent.put("/api/settings/business").send({ name: "Oasis", ...extra });
+
+    expect(response.status).toBe(400);
+    expect((await agent.get("/api/settings/business")).body.name).toBeNull();
+  });
+
+  it("no se pueden crear ni borrar", async () => {
+    expect((await agent.post("/api/settings/business").send(full)).status).toBe(404);
+    expect((await agent.delete("/api/settings/business")).status).toBe(404);
+  });
+});

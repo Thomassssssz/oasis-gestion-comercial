@@ -42,6 +42,69 @@ describe("acceso", () => {
   });
 });
 
+describe("PUT /api/accounts/:id/remito", () => {
+  it("sin sesión responde 401", async () => {
+    expect((await request(app).put("/api/accounts/1/remito").send({})).status).toBe(401);
+  });
+
+  it("guarda el número de ficha y el de remito, y la ficha los devuelve", async () => {
+    const sale = await creditSale(await seedCustomer("Ana"), 2);
+    const id = sale.body.accountId;
+
+    const response = await agent.put(`/api/accounts/${id}/remito`).send({ number: " 0123 ", remitoNumber: "0001-00004567" });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ id, number: "0123", remitoNumber: "0001-00004567" });
+    expect((await agent.get(`/api/accounts/${id}`)).body).toMatchObject({ number: "0123", remitoNumber: "0001-00004567" });
+  });
+
+  it("por defecto los dos números están vacíos, y enviar vacío los borra", async () => {
+    const sale = await creditSale(await seedCustomer("Ana"));
+    const id = sale.body.accountId;
+    expect((await agent.get(`/api/accounts/${id}`)).body).toMatchObject({ number: null, remitoNumber: null });
+
+    await agent.put(`/api/accounts/${id}/remito`).send({ number: "1", remitoNumber: "2" });
+    const cleared = await agent.put(`/api/accounts/${id}/remito`).send({ number: "  ", remitoNumber: null });
+
+    expect(cleared.body).toMatchObject({ number: null, remitoNumber: null });
+  });
+
+  it("solo cambia esos dos datos: saldo, vencimiento, estado y movimientos quedan igual", async () => {
+    const sale = await creditSale(await seedCustomer("Ana"), 3);
+    const id = sale.body.accountId;
+    const before = (await agent.get(`/api/accounts/${id}`)).body;
+
+    const response = await agent
+      .put(`/api/accounts/${id}/remito`)
+      .send({ number: "7", remitoNumber: "8", status: "CANCELLED", dueDate: "2030-01-01T00:00:00.000Z", balance: "0.00" });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ ...before, number: "7", remitoNumber: "8" });
+  });
+
+  it("también se puede en una ficha cancelada", async () => {
+    const sale = await creditSale(await seedCustomer("Ana"));
+    const id = sale.body.accountId;
+    await agent.post(`/api/accounts/${id}/payments`).send({ amount: "100.00", paymentMethod: "CASH" });
+
+    const response = await agent.put(`/api/accounts/${id}/remito`).send({ number: "9", remitoNumber: null });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ status: "CANCELLED", number: "9" });
+  });
+
+  it("responde 404 si la ficha no existe y 400 si el id o los datos no son válidos", async () => {
+    expect((await agent.put("/api/accounts/999/remito").send({ number: "1" })).status).toBe(404);
+    expect((await agent.put("/api/accounts/abc/remito").send({ number: "1" })).status).toBe(400);
+
+    const sale = await creditSale(await seedCustomer("Ana"));
+    const id = sale.body.accountId;
+    expect((await agent.put(`/api/accounts/${id}/remito`).send({ number: "x".repeat(31) })).status).toBe(400);
+    expect((await agent.put(`/api/accounts/${id}/remito`).send({ remitoNumber: 123 })).status).toBe(400);
+    expect((await prisma.creditAccount.findUniqueOrThrow({ where: { id } })).number).toBeNull();
+  });
+});
+
 describe("GET /api/accounts/:id", () => {
   it("devuelve el saldo (suma de ventas con descuento), las ventas y el vencimiento", async () => {
     const cliente = await seedCustomer("Ana");

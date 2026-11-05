@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import type { CreditAccountService } from "../services/credit-account.service.js";
 import { idParamSchema } from "../validators/common.validator.js";
-import { accountListQuerySchema, accountPaymentSchema } from "../validators/credit-account.validator.js";
+import { accountListQuerySchema, accountPaymentSchema, accountRemitoSchema } from "../validators/credit-account.validator.js";
 
 // Controlador de cuentas corrientes: valida lo que llega, llama al servicio y arma la respuesta HTTP.
 export function createCreditAccountController(service: CreditAccountService) {
@@ -13,6 +13,11 @@ export function createCreditAccountController(service: CreditAccountService) {
     async get(req: Request, res: Response) {
       const { id } = idParamSchema.parse(req.params);
       res.json(await service.get(id));
+    },
+
+    async updateRemito(req: Request, res: Response) {
+      const { id } = idParamSchema.parse(req.params);
+      res.json(await service.updateRemito(id, accountRemitoSchema.parse(req.body ?? {})));
     },
 
     async pay(req: Request, res: Response) {

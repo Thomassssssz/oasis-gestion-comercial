@@ -32,10 +32,12 @@ describe("auditEntryFor", () => {
         "POST /api/sales",
         "POST /api/sales/:id/annul",
         "POST /api/stock-movements",
+        "PUT /api/accounts/:id/remito",
         "PUT /api/categories/:id",
         "PUT /api/customers/:id",
         "PUT /api/products/:id",
         "PUT /api/settings",
+        "PUT /api/settings/business",
       ].sort(),
     );
   });
@@ -79,6 +81,25 @@ describe("auditEntryFor", () => {
     expect(ajuste!.summary).toBe('Ajustó el stock de "Goma": -3 unidades (motivo: DAMAGE_OR_LOSS)');
     expect(suma!.summary).toBe('Ajustó el stock de "Goma": +4 unidades (motivo: PHYSICAL_COUNT)');
     expect(inicial!.summary).toBe('Cargó el stock inicial de "Goma": 10 unidades');
+  });
+
+  it("describe el cambio de los datos del comercio, con o sin nombre", () => {
+    expect(auditEntryFor("PUT /api/settings/business", { ...ctx, body: { name: "Ediciones Oasis" } })).toEqual({
+      action: "BUSINESS_DATA_CHANGED",
+      entityType: "Setting",
+      entityId: 1,
+      summary: 'Cambió los datos del comercio del remito ("Ediciones Oasis")',
+    });
+    expect(auditEntryFor("PUT /api/settings/business", { ...ctx, body: { name: null } })!.summary).toBe("Cambió los datos del comercio del remito");
+  });
+
+  it("describe el cambio de los números del remito con la cuenta y el cliente", () => {
+    expect(auditEntryFor("PUT /api/accounts/:id/remito", { ...ctx, body: { id: 9, customer: { name: "Ana" } } })).toEqual({
+      action: "ACCOUNT_REMITO_UPDATED",
+      entityType: "CreditAccount",
+      entityId: 9,
+      summary: "Cambió los números del remito de la cuenta #9 de Ana",
+    });
   });
 
   it("un pago que cancela la cuenta lo aclara", () => {

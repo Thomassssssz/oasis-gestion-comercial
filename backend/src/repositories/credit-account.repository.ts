@@ -106,6 +106,10 @@ export function createCreditAccountRepository(prisma: PrismaClient) {
 
     findById: (id: number) => prisma.creditAccount.findUnique({ where: { id }, include: accountInclude }),
 
+    // Solo cambia los números del remito: la ficha, sus movimientos y su saldo no se tocan (D23).
+    updateRemito: (id: number, data: { number: string | null; remitoNumber: string | null }) =>
+      prisma.creditAccount.update({ where: { id }, data, include: accountInclude }),
+
     lateFeePercent: () => prisma.$transaction((tx) => accountQueries(tx).lateFeePercent()),
 
     // Corre `work` en una transacción con la ficha bloqueada: dos pagos o recargos sobre la misma ficha

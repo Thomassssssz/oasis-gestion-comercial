@@ -99,12 +99,14 @@ Requieren sesión (401 si no hay). Cada cliente tiene su ficha individual (D14).
 |---|---|---|
 | `GET /customers` | Lista ordenada por nombre. Filtros opcionales: `search` (busca en nombre, DNI y teléfono, sin distinguir mayúsculas), `active` (`true` o `false`), `creditAuthorized` (`true` o `false`) | 200, 400 |
 | `GET /customers/:id` | Devuelve una ficha | 200, 400, 404 |
-| `POST /customers` | Crea un cliente. Cuerpo: `{ "name", "phone", "dni", "address", "notes", "creditAuthorized" }` (solo `name` es obligatorio) | 201, 400, 409 |
+| `POST /customers` | Crea un cliente. Cuerpo: `{ "name", "phone", "dni", "address", "locality", "taxCondition", "cuit", "notes", "creditAuthorized" }` (solo `name` es obligatorio) | 201, 400, 409 |
 | `PUT /customers/:id` | Cambia todos los datos. Cuerpo: igual que al crear, más `"active": true/false` | 200, 400, 404, 409 |
 
 No hay `DELETE`: un cliente se da de baja con `"active": false` y se reactiva con `"active": true`, para no perder su historial. Un `PUT` reemplaza la ficha completa: los datos opcionales que no se envían quedan vacíos.
 
 Reglas: el nombre es obligatorio (hasta 150 caracteres) y puede repetirse. El DNI es opcional, tiene 7 u 8 dígitos y se acepta con puntos o espacios (`30.123.456`), pero se guarda y devuelve solo con dígitos; si ya lo tiene otro cliente responde 409. El teléfono es opcional: números, espacios, `+`, `-` y paréntesis, de 6 a 30 caracteres. La dirección admite hasta 200 caracteres y las observaciones hasta 500. Un texto opcional enviado vacío o con solo espacios se guarda como sin dato (`null`). Al crear, `creditAuthorized` es `false` por defecto y el cliente siempre nace activo.
+
+Datos que se completan en el remito (D23), todos opcionales: `locality` (hasta 100 caracteres), `taxCondition` (`CONSUMER` = consumidor final, `EXEMPT` = exento, `REGISTERED` = responsable inscripto, `MONOTAX` = monotributo; `null` = sin dato) y `cuit` (se acepta con guiones, `20-12345678-9`, y se guarda y devuelve con sus 11 dígitos; no se verifica el dígito verificador).
 
 ## Parámetros
 
@@ -117,19 +119,29 @@ Requieren sesión (401 si no hay). Hoy hay un solo parámetro: el recargo por mo
 
 Reglas: el porcentaje va de 0 a 100 con hasta 2 decimales y punto decimal (la coma se rechaza). Quién lo cambió sale de la sesión, nunca del cuerpo. No se pueden crear ni borrar parámetros.
 
+### Datos del comercio (encabezado del remito, D23)
+
+| Método y ruta | Qué hace | Respuestas |
+|---|---|---|
+| `GET /settings/business` | Devuelve `{ "name", "owner", "address", "taxCondition", "cuit", "grossIncome", "activityStart", "updatedAt", "updatedBy" }`. Mientras nadie los cargue, todos los datos son `null`: el sistema no trae ningún dato del comercio de fábrica | 200 |
+| `PUT /settings/business` | Reemplaza todos los datos del comercio. Cuerpo: los mismos siete campos (todos opcionales; lo que no se envía queda vacío) | 200, 400 |
+
+Reglas: `name` y `owner` hasta 100 caracteres, `address` hasta 300 (admite varias líneas), `grossIncome` (número de Ingresos Brutos) hasta 30, `taxCondition` y `cuit` como en Clientes, `activityStart` como `AAAA-MM-DD` (una fecha que existe). No toca el recargo por mora. Un texto vacío o de solo espacios se guarda como sin dato.
+
 
 ## Cuentas corrientes
 
-Requieren sesión (401 si no hay). Las fichas se abren solas al vender a crédito (D17); no se crean, editan ni borran a mano. Los pagos y recargos son movimientos nuevos: tampoco se editan ni se borran (D18).
+Requieren sesión (401 si no hay). Las fichas se abren solas al vender a crédito (D17); no se crean ni se borran a mano, y lo único que se edita son los dos números del remito (D23). Los pagos y recargos son movimientos nuevos: tampoco se editan ni se borran (D18).
 
 | Método y ruta | Qué hace | Respuestas |
 |---|---|---|
 | `GET /accounts` | Lista las fichas, las más nuevas primero. Filtros opcionales: `status` (`OPEN` = pendientes, `CANCELLED` = historial) y `customerId` | 200, 400 |
 | `GET /accounts/:id` | Devuelve una ficha con sus ventas, pagos y recargos | 200, 400, 404 |
+| `PUT /accounts/:id/remito` | Guarda los números que se escriben a mano en el remito. Cuerpo: `{ "number", "remitoNumber" }` (opcionales, hasta 30 caracteres; lo que no se envía queda vacío). Solo cambia esos dos datos, en fichas abiertas y canceladas | 200, 400, 404 |
 | `POST /accounts/:id/payments` | Registra un pago. Cuerpo: `{ "amount", "paymentMethod", "note"? }`. Antes registra los recargos que ya corresponden | 201, 400, 404, 409 |
 | `POST /accounts/:id/surcharges` | Registra los recargos por mora que ya corresponden y todavía no figuran. Sin cuerpo | 200, 404, 409 |
 
-Cada ficha devuelve `id`, `customer` (`{ id, name }`), `status`, `openedAt`, `dueDate`, `closedAt`, `balance` (texto con 2 decimales, calculado), `overdue` (verdadero si está abierta y ya pasó el vencimiento), `monthsOverdue` (meses de atraso completos; 0 si no está vencida o está cancelada) y `sales` (`id`, `status`, `createdAt`, `note`, `discount`, `total` y `items`: por cada artículo `productName`, `quantity`, `unitPrice` —el precio de ese momento— y `subtotal`). Es lo que muestra la ficha del cliente.
+Cada ficha devuelve `id`, `customer` (`{ id, name }`), `status`, `openedAt`, `dueDate`, `closedAt`, `number` y `remitoNumber` (los números del remito, o `null`), `balance` (texto con 2 decimales, calculado), `overdue` (verdadero si está abierta y ya pasó el vencimiento), `monthsOverdue` (meses de atraso completos; 0 si no está vencida o está cancelada) y `sales` (`id`, `status`, `createdAt`, `note`, `discount`, `total` y `items`: por cada artículo `productName`, `quantity`, `unitPrice` —el precio de ese momento— y `subtotal`). Es lo que muestra la ficha del cliente.
 
 Además cada ficha devuelve: `pendingSurcharges` (recargos que ya corresponden pero no se registraron: `monthNumber`, `base`, `percent`, `amount`, `chargedOn`; solo se muestran, **no se guardan** hasta aplicarlos o pagar), `pendingSurchargesTotal`, `payable` (saldo + recargos pendientes, lo que habría que pagar hoy), `surcharges` (los registrados, con `registeredAt`) y `payments` (`id`, `amount`, `paymentMethod`, `note`, `createdAt`, `userName`). El `balance` es el saldo **registrado** (ventas − anuladas + recargos registrados − pagos).
 

@@ -175,6 +175,9 @@ model Customer {
   dni              String?         @unique
   address          String?
   notes            String?
+  locality         String?
+  taxCondition     TaxCondition?
+  cuit             String?
   creditAuthorized Boolean         @default(false)
   active           Boolean         @default(true)
   createdAt        DateTime        @default(now())
@@ -183,29 +186,47 @@ model Customer {
   creditAccounts   CreditAccount[]
 }
 
+// Condición frente al IVA, como figura en el remito: consumidor final, exento, responsable inscripto o monotributo (D23).
+enum TaxCondition {
+  CONSUMER
+  EXEMPT
+  REGISTERED
+  MONOTAX
+}
+
 // Parámetros del sistema. Hay una sola fila (id = 1). El recargo por mora es un parámetro configurable (D16).
+// También guarda los datos del comercio que se imprimen en el encabezado del remito (D23). Arrancan vacíos: los carga el dueño.
 model Setting {
-  id             Int      @id @default(1)
-  lateFeePercent Decimal  @default(5) @db.Decimal(5, 2)
-  updatedAt      DateTime @updatedAt
-  updatedById    Int?
-  updatedBy      User?    @relation(fields: [updatedById], references: [id], onDelete: Restrict)
+  id                    Int           @id @default(1)
+  lateFeePercent        Decimal       @default(5) @db.Decimal(5, 2)
+  businessName          String?
+  businessOwner         String?
+  businessAddress       String?
+  businessTaxCondition  TaxCondition?
+  businessCuit          String?
+  businessGrossIncome   String?
+  businessActivityStart DateTime?     @db.Date
+  updatedAt             DateTime      @updatedAt
+  updatedById           Int?
+  updatedBy             User?         @relation(fields: [updatedById], references: [id], onDelete: Restrict)
 }
 
 // Ficha de cuenta corriente de un cliente (D17). El primer producto a crédito que se registra en la ficha
 // inicia su plazo de un mes (openedAt -> dueDate); cada cliente tiene su propio ciclo. Cuando el saldo llega a cero
 // la ficha pasa a CANCELLED (historial). El saldo no se guarda: se calcula (D17-e).
 model CreditAccount {
-  id         Int                 @id @default(autoincrement())
-  customerId Int
-  customer   Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  status     CreditAccountStatus @default(OPEN)
-  openedAt   DateTime
-  dueDate    DateTime
-  closedAt   DateTime?
-  sales      Sale[]
-  payments   AccountPayment[]
-  surcharges Surcharge[]
+  id           Int                 @id @default(autoincrement())
+  customerId   Int
+  customer     Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  status       CreditAccountStatus @default(OPEN)
+  openedAt     DateTime
+  dueDate      DateTime
+  closedAt     DateTime?
+  number       String?
+  remitoNumber String?
+  sales        Sale[]
+  payments     AccountPayment[]
+  surcharges   Surcharge[]
 
   @@index([customerId])
   @@index([status, dueDate])

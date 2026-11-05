@@ -68,6 +68,20 @@ const rules: Record<string, (ctx: Context) => AuditEntry> = {
     summary: `Cambió el recargo por mora a ${body?.lateFeePercent}%`,
   }),
 
+  "PUT /api/settings/business": ({ body }) => ({
+    action: "BUSINESS_DATA_CHANGED",
+    entityType: "Setting",
+    entityId: 1,
+    summary: `Cambió los datos del comercio del remito${body?.name ? ` ("${body.name}")` : ""}`,
+  }),
+
+  "PUT /api/accounts/:id/remito": ({ body }) => ({
+    action: "ACCOUNT_REMITO_UPDATED",
+    entityType: "CreditAccount",
+    entityId: idFrom(body?.id),
+    summary: `Cambió los números del remito de la cuenta #${body?.id} de ${body?.customer?.name}`,
+  }),
+
   "POST /api/customers": ({ body }) => ({
     action: "CUSTOMER_CREATED",
     entityType: "Customer",

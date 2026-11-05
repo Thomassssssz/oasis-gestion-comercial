@@ -107,6 +107,19 @@ describe("qué se anota", () => {
     expect(await only()).toMatchObject({ action: "SETTING_CHANGED", entityType: "Setting", entityId: 1, summary: "Cambió el recargo por mora a 7.50%" });
   });
 
+  it("el cambio de los datos del comercio y de los números del remito", async () => {
+    await agent.put("/api/settings/business").send({ name: "Comercio de prueba" });
+    const customerId = await seedCustomer();
+    const productId = await seedProduct();
+    const sale = await agent.post("/api/sales").send({ customerId, onCredit: true, items: [{ productId, quantity: 1 }] });
+    await agent.put(`/api/accounts/${sale.body.accountId}/remito`).send({ number: "5", remitoNumber: "6" });
+
+    const entries = await log();
+    expect(entries.map((e) => e.action)).toEqual(["BUSINESS_DATA_CHANGED", "SALE_REGISTERED", "ACCOUNT_REMITO_UPDATED"]);
+    expect(entries[0]).toMatchObject({ entityType: "Setting", entityId: 1, userId, summary: 'Cambió los datos del comercio del remito ("Comercio de prueba")' });
+    expect(entries[2]).toMatchObject({ entityType: "CreditAccount", entityId: sale.body.accountId, userId, summary: `Cambió los números del remito de la cuenta #${sale.body.accountId} de Ana` });
+  });
+
   it("altas y cambios de clientes, con el crédito autorizado", async () => {
     const created = await agent.post("/api/customers").send({ name: "Beto", creditAuthorized: false });
     await agent

@@ -3,7 +3,8 @@ import { accountBalance, computeDueSurcharges, monthsOverdue, type AccountMoveme
 import { conflict, notFound } from "../helpers/errors.js";
 import { totalOf } from "../helpers/sale-total.js";
 import type { AccountQueries, CreditAccountRecord, CreditAccountRepository } from "../repositories/credit-account.repository.js";
-import type { AccountListQuery, AccountPaymentInput } from "../validators/credit-account.validator.js";
+import { hasPrismaCode } from "../helpers/prisma-errors.js";
+import type { AccountListQuery, AccountPaymentInput, AccountRemitoInput } from "../validators/credit-account.validator.js";
 
 const NOT_FOUND = "La cuenta no existe";
 const money = (value: Prisma.Decimal) => value.toFixed(2);
@@ -40,6 +41,8 @@ export function createCreditAccountService(repository: CreditAccountRepository, 
       openedAt: account.openedAt,
       dueDate: account.dueDate,
       closedAt: account.closedAt,
+      number: account.number,
+      remitoNumber: account.remitoNumber,
       balance: money(balance),
       pendingSurchargesTotal: money(pendingTotal),
       payable: money(balance.add(pendingTotal)), // saldo + recargos que ya corresponden: lo que hay que pagar hoy
@@ -121,6 +124,16 @@ export function createCreditAccountService(repository: CreditAccountRepository, 
     },
 
     get: getDto,
+
+    // Guarda el número de ficha y el de remito. Se puede en fichas abiertas y canceladas: no cambia dinero ni vencimientos.
+    async updateRemito(id: number, input: AccountRemitoInput) {
+      try {
+        return toDto(await repository.updateRemito(id, input), await repository.lateFeePercent());
+      } catch (error) {
+        if (hasPrismaCode(error, "P2025")) throw notFound(NOT_FOUND);
+        throw error;
+      }
+    },
 
     // Registra los recargos por mora que ya corresponden. No toca los ya registrados (no se recalcula el pasado).
     async applySurcharges(id: number, userId: number) {

@@ -17,6 +17,22 @@ export const optionalText = (label: string, max: number) =>
     .nullish()
     .transform((value) => value ?? null);
 
+// Condición frente al IVA (D23). Vacío o ausente significa "sin dato".
+export const taxConditionSchema = z
+  .enum(["CONSUMER", "EXEMPT", "REGISTERED", "MONOTAX"], { error: "La condición frente al IVA no es válida" })
+  .nullish()
+  .transform((value) => value ?? null);
+
+// CUIT: se escribe con o sin guiones ("20-12345678-9") y se guarda solo con sus 11 dígitos. Vacío es "sin dato".
+// No se verifica el dígito verificador: el dato lo carga el comercio y se imprime tal cual (D23).
+export const cuitSchema = z
+  .string({ error: "El CUIT no es válido" })
+  .transform((value) => value.replace(/[-.\s]/g, ""))
+  .transform((value) => (value === "" ? null : value))
+  .nullish()
+  .transform((value) => value ?? null)
+  .pipe(z.string().regex(/^\d{11}$/, "El CUIT debe tener 11 dígitos").nullable());
+
 // Teléfono libre con formato básico (D14-f): dígitos, espacios, +, -, y paréntesis.
 // Primero se limpia (si queda vacío es "sin dato") y recién después se valida el formato.
 export const phoneSchema = z

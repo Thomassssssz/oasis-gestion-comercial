@@ -18,4 +18,12 @@ export const accountPaymentSchema = z.object({
   note: optionalText("La nota", 500),
 });
 
+// Los dos números que se escriben a mano en el remito de papel: el de la ficha (Nº) y el del remito (Remito Nº) (D23).
+// Se envían los dos juntos; vacío significa "sin dato".
+export const accountRemitoSchema = z.object({
+  number: optionalText("El número", 30),
+  remitoNumber: optionalText("El número de remito", 30),
+});
+
+export type AccountRemitoInput = z.infer<typeof accountRemitoSchema>;
 export type AccountPaymentInput = z.infer<typeof accountPaymentSchema>;

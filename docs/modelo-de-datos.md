@@ -162,12 +162,15 @@ El **total de la venta no se guarda**: es la suma de `quantity × unitPrice` de 
 | phone | texto, opcional | solo dígitos, espacios, `+`, `-` y paréntesis; de 6 a 30 caracteres (D14-f) |
 | dni | texto, opcional, **único** | 7 u 8 dígitos, sin puntos (D14-d). Se guarda como texto para no perder ceros ni tratarlo como número |
 | address | texto, opcional | hasta 200 caracteres |
+| locality | texto, opcional | localidad, hasta 100 caracteres; se completa en el remito (D23) |
+| taxCondition | `CONSUMER`, `EXEMPT`, `REGISTERED` o `MONOTAX`, opcional | condición frente al IVA (D23) |
+| cuit | texto, opcional | 11 dígitos, sin guiones (D23) |
 | notes | texto, opcional | observaciones, hasta 500 caracteres |
 | creditAuthorized | verdadero o falso | si puede comprar a crédito; por defecto `false` (D14-b) |
 | active | verdadero o falso | `false` es un cliente dado de baja; por defecto `true`. Un cliente no se borra (D14-c) |
 | createdAt, updatedAt | fecha y hora | cuándo se creó y se modificó por última vez |
 
-**Reglas que hace cumplir la propia base de datos:** el DNI no se repite (la restricción única admite varios clientes sin DNI, porque en PostgreSQL los valores `NULL` no se consideran iguales entre sí) y el nombre no puede estar vacío.
+**Reglas que hace cumplir la propia base de datos:** el DNI no se repite (la restricción única admite varios clientes sin DNI, porque en PostgreSQL los valores `NULL` no se consideran iguales entre sí), el nombre no puede estar vacío, el CUIT (si está) tiene 11 dígitos y la localidad (si está) no es solo espacios.
 
 Esta tabla todavía no se relaciona con otras: las ventas con cliente y las cuentas corrientes (módulo 5) la van a referenciar con una clave foránea `customerId`.
 
@@ -193,15 +196,21 @@ Esta tabla todavía no se relaciona con otras: las ventas con cliente y las cuen
 |---|---|---|
 | id | entero, clave primaria | siempre vale 1: la base de datos solo admite una fila (D16-a) |
 | lateFeePercent | decimal(5,2) entre 0 y 100 | porcentaje de recargo por cada mes de atraso; por defecto 5 |
+| businessName, businessOwner | texto, opcional | nombre del comercio y su titular, como se imprimen en el encabezado del remito (D23). Arrancan vacíos |
+| businessAddress | texto, opcional | domicilio, puede tener varias líneas |
+| businessTaxCondition | `CONSUMER`, `EXEMPT`, `REGISTERED` o `MONOTAX`, opcional | condición frente al IVA del comercio |
+| businessCuit | texto, opcional | 11 dígitos |
+| businessGrossIncome | texto, opcional | número de Ingresos Brutos (texto: puede llevar guiones) |
+| businessActivityStart | fecha (sin hora), opcional | inicio de actividades |
 | updatedAt | fecha y hora | cuándo se modificó por última vez |
 | updatedById | entero, clave foránea → User, opcional | quién lo modificó por última vez; vacío mientras nadie lo cambió. No se puede borrar un usuario que figure acá |
 
-**Reglas que hace cumplir la propia base de datos:** una sola fila (`id = 1`) y porcentaje entre 0 y 100.
+**Reglas que hace cumplir la propia base de datos:** una sola fila (`id = 1`), porcentaje entre 0 y 100, CUIT del comercio de 11 dígitos y textos del comercio que no pueden ser solo espacios.
 
 ### Por qué está en 3FN
 
 - La clave es un solo campo (`id`): se cumple 2FN.
-- `lateFeePercent`, `updatedAt` y `updatedById` dependen solo de la clave. El nombre de quien lo modificó no se repite: se llega a él con `updatedById`.
+- `lateFeePercent`, los datos del comercio, `updatedAt` y `updatedById` dependen solo de la clave (hay una única fila: son atributos del sistema, no de otra cosa). El nombre de quien lo modificó no se repite: se llega a él con `updatedById`.
 - No hay datos derivados guardados.
 
 ### Supuestos a confirmar (no están relevados)
@@ -222,10 +231,12 @@ Esta tabla todavía no se relaciona con otras: las ventas con cliente y las cuen
 | openedAt | fecha y hora | momento de la primera venta a crédito del ciclo (D17-f) |
 | dueDate | fecha y hora | `openedAt` + 1 mes. No cambia con ventas ni pagos posteriores |
 | closedAt | fecha y hora, opcional | cuándo se canceló; vacío mientras está abierta |
+| number | texto, opcional | el "Nº" que se escribe a mano en el remito de papel (D23) |
+| remitoNumber | texto, opcional | el "Remito Nº" que se escribe a mano (D23) |
 
 El **saldo no se guarda**: se calcula como ventas de la ficha (`Sale.creditAccountId`, con descuentos y sin las anuladas) + recargos registrados − pagos (D17-h, D18).
 
-**Reglas que hace cumplir la propia base de datos:** el vencimiento es posterior a la apertura; una ficha abierta no tiene fecha de cierre y una cancelada sí; un cliente tiene **como máximo una ficha abierta** (índice único parcial) pero puede tener muchas canceladas; no se puede borrar un cliente con fichas ni una ficha con ventas, pagos o recargos.
+**Reglas que hace cumplir la propia base de datos:** el vencimiento es posterior a la apertura; una ficha abierta no tiene fecha de cierre y una cancelada sí; un cliente tiene **como máximo una ficha abierta** (índice único parcial) pero puede tener muchas canceladas; no se puede borrar un cliente con fichas ni una ficha con ventas, pagos o recargos; los números del remito, si están, no son solo espacios.
 
 ### Por qué está en 3FN
 

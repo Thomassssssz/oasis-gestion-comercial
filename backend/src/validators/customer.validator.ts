@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { optionalText, phoneSchema } from "./common.validator.js";
+import { cuitSchema, optionalText, phoneSchema, taxConditionSchema } from "./common.validator.js";
 
 // El DNI se escribe con o sin puntos ("30.123.456") y se guarda solo con dígitos. Tiene 7 u 8 dígitos (D14-d).
 // Primero se limpia (sin puntos ni espacios; si queda vacío es "sin dato") y recién después se valida el formato.
@@ -21,6 +21,9 @@ export const customerInputSchema = z.object({
   phone: phoneSchema,
   dni: dniSchema,
   address: optionalText("La dirección", 200),
+  locality: optionalText("La localidad", 100),
+  taxCondition: taxConditionSchema,
+  cuit: cuitSchema,
   notes: optionalText("Las observaciones", 500),
   creditAuthorized: z.boolean({ error: "Indicá si está autorizado a comprar a crédito" }).default(false),
 });
