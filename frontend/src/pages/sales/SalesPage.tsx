@@ -3,17 +3,20 @@ import SaleForm from '@/components/sales/SaleForm'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
+import { listCustomers } from '@/services/customers/customer.service'
 import { listProducts } from '@/services/products/product.service'
 import { annulSale, listSales } from '@/services/sales/sale.service'
+import type { Customer } from '@/types/customer.types'
 import type { Product } from '@/types/product.types'
 import type { Sale, SaleFilters } from '@/types/sale.types'
 import { describeError } from '@/utils/errors'
 import { dateTime, peso } from '@/utils/format'
 import { paymentMethodLabels } from '@/utils/sale-labels'
 
-// Ventas: venta rápida arriba e historial abajo, con la anulación de ventas (D3, D13).
+// Ventas: venta rápida o completa arriba e historial abajo, con la anulación de ventas (D3, D13).
 export default function SalesPage() {
   const [products, setProducts] = useState<Product[]>([])
+  const [customers, setCustomers] = useState<Customer[]>([])
   const [sales, setSales] = useState<Sale[] | null>(null)
   const [filters, setFilters] = useState<SaleFilters>({ status: '' })
   const [error, setError] = useState<string | null>(null)
@@ -38,6 +41,21 @@ export default function SalesPage() {
       ignore = true
     }
   }, [reload])
+
+  // Los clientes activos para la venta completa (se piden una sola vez).
+  useEffect(() => {
+    let ignore = false
+    listCustomers({ search: '', status: 'active', credit: 'all' })
+      .then((list) => {
+        if (!ignore) setCustomers(list)
+      })
+      .catch((e) => {
+        if (!ignore) setError(describeError(e))
+      })
+    return () => {
+      ignore = true
+    }
+  }, [])
 
   useEffect(() => {
     let ignore = false
@@ -78,7 +96,7 @@ export default function SalesPage() {
     <section>
       <h2 className="mb-4 text-xl font-semibold">Ventas</h2>
 
-      <SaleForm products={products} onSaved={() => setReload((n) => n + 1)} />
+      <SaleForm products={products} customers={customers} onSaved={() => setReload((n) => n + 1)} />
 
       <div className="mb-4 flex items-center justify-between gap-3">
         <h3 className="text-lg font-semibold">Historial</h3>
@@ -110,6 +128,7 @@ export default function SalesPage() {
               <tr>
                 <th className="px-3 py-2 font-medium">N.º</th>
                 <th className="px-3 py-2 font-medium">Fecha</th>
+                <th className="px-3 py-2 font-medium">Cliente</th>
                 <th className="px-3 py-2 font-medium">Productos</th>
                 <th className="px-3 py-2 font-medium">Pago</th>
                 <th className="px-3 py-2 text-right font-medium">Total</th>
@@ -123,10 +142,19 @@ export default function SalesPage() {
                 <tr key={sale.id} className={sale.status === 'ANNULLED' ? 'text-muted-foreground' : undefined}>
                   <td className="px-3 py-2">#{sale.id}</td>
                   <td className="whitespace-nowrap px-3 py-2">{dateTime.format(new Date(sale.createdAt))}</td>
-                  <td className="px-3 py-2">{sale.items.map((item) => `${item.quantity} × ${item.productName}`).join(', ')}</td>
-                  <td className="px-3 py-2">{paymentMethodLabels[sale.paymentMethod]}</td>
+                  <td className="px-3 py-2">{sale.customer?.name ?? '—'}</td>
+                  <td className="px-3 py-2">
+                    {sale.items.map((item) => `${item.quantity} × ${item.productName}`).join(', ')}
+                    {sale.note && <span className="mt-1 block text-xs text-muted-foreground">Nota: {sale.note}</span>}
+                  </td>
+                  <td className="px-3 py-2">{sale.paymentMethod ? paymentMethodLabels[sale.paymentMethod] : 'A crédito'}</td>
                   <td className={`px-3 py-2 text-right ${sale.status === 'ANNULLED' ? 'line-through' : ''}`}>
                     {peso.format(Number(sale.total))}
+                    {Number(sale.discount) > 0 && (
+                      <span className="block text-xs text-muted-foreground no-underline">
+                        desc. {peso.format(Number(sale.discount))}
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     {sale.status === 'CONFIRMED' ? (

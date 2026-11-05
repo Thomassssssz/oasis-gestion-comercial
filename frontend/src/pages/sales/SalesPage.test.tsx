@@ -23,7 +23,13 @@ const venta = (id: number, extra: object = {}) => ({
   id,
   status: 'CONFIRMED',
   paymentMethod: 'CASH',
+  onCredit: false,
+  customer: null,
+  accountId: null,
+  subtotal: '3001.00',
+  discount: '0.00',
   total: '3001.00',
+  note: null,
   userId: 1,
   userName: 'Ana Propietaria',
   createdAt: '2026-11-04T15:30:00.000Z',
@@ -32,8 +38,12 @@ const venta = (id: number, extra: object = {}) => ({
   ...extra,
 })
 
+const maria = { id: 5, name: 'María Gómez', creditAuthorized: true }
+const pedro = { id: 6, name: 'Pedro Sosa', creditAuthorized: false }
+
 const baseRoutes = {
   'GET /api/products': () => [cuaderno, lapiz, agotado],
+  'GET /api/customers': () => [maria, pedro],
   'GET /api/sales': () => [],
 }
 
@@ -166,6 +176,7 @@ describe('SalesPage – nueva venta', () => {
     let ventas: object[] = []
     const { calls } = mockApi({
       'GET /api/products': () => [cuaderno, lapiz],
+      'GET /api/customers': () => [],
       'GET /api/sales': () => ventas,
       'POST /api/sales': () => {
         ventas = [venta(21)]
@@ -237,6 +248,7 @@ describe('SalesPage – anular', () => {
     let anulada = false
     const { calls } = mockApi({
       'GET /api/products': () => [cuaderno],
+      'GET /api/customers': () => [],
       'GET /api/sales': () =>
         anulada
           ? [venta(7, { status: 'ANNULLED', annulment: { at: '2026-11-04T16:00:00.000Z', byId: 1, byName: 'Ana Propietaria', reason: 'Error de carga' } })]
@@ -280,5 +292,172 @@ describe('SalesPage – anular', () => {
     expect(screen.queryByLabelText('Motivo de la anulación')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Anular venta 7' })).toBeInTheDocument()
     expect(calls.some((c) => c.method === 'POST')).toBe(false)
+  })
+})
+
+describe('SalesPage – venta completa', () => {
+  it('ofrece solo los clientes activos que trae la API y marca los autorizados a crédito', async () => {
+    const { calls } = mockApi(baseRoutes)
+    render(<SalesPage />)
+
+    expect(await screen.findByRole('option', { name: 'María Gómez (crédito autorizado)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Pedro Sosa' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Sin cliente' })).toBeInTheDocument()
+    expect(calls.find((c) => c.path === '/api/customers')?.query.get('active')).toBe('true')
+  })
+
+  it('el total descuenta el descuento (acepta coma) y muestra el subtotal', async () => {
+    mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    await agregar(user, 10)
+
+    await user.type(screen.getByLabelText('Descuento en pesos (opcional)'), '250,50')
+
+    expect(screen.getByTestId('cart-total')).toHaveTextContent(/\$\s?1\.250,00/) // 1500,50 − 250,50
+    expect(screen.getByText(/Subtotal .* − descuento/)).toHaveTextContent(/1\.500,50.*250,50/)
+  })
+
+  it('manda cliente, descuento con punto y nota; no manda lo que quedó vacío', async () => {
+    const { calls } = mockApi({ ...baseRoutes, 'POST /api/sales': () => venta(30) })
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    await agregar(user, 10)
+
+    await user.selectOptions(screen.getByLabelText('Cliente (opcional)'), 'María Gómez (crédito autorizado)')
+    await user.type(screen.getByLabelText('Descuento en pesos (opcional)'), '100,5')
+    await user.type(screen.getByLabelText('Nota (opcional)'), '  Pedido especial  ')
+    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
+
+    await screen.findByText(/Venta #30 registrada/)
+    expect(calls.find((c) => c.method === 'POST')!.body).toEqual({
+      paymentMethod: 'CASH',
+      customerId: 5,
+      discount: '100.5',
+      note: 'Pedido especial',
+      items: [{ productId: 10, quantity: 1 }],
+    })
+  })
+
+  it('después de registrar la venta limpia cliente, descuento, nota y crédito para la siguiente', async () => {
+    mockApi({ ...baseRoutes, 'POST /api/sales': () => venta(33) })
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    await agregar(user, 10)
+    await user.selectOptions(screen.getByLabelText('Cliente (opcional)'), 'María Gómez (crédito autorizado)')
+    await user.type(screen.getByLabelText('Descuento en pesos (opcional)'), '10')
+    await user.type(screen.getByLabelText('Nota (opcional)'), 'Algo')
+    await user.click(screen.getByLabelText(/Venta a crédito/))
+    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
+    await screen.findByText(/Venta #33 registrada/)
+
+    expect(screen.getByLabelText('Cliente (opcional)')).toHaveValue('')
+    expect(screen.getByLabelText('Descuento en pesos (opcional)')).toHaveValue('')
+    expect(screen.getByLabelText('Nota (opcional)')).toHaveValue('')
+    expect(screen.getByLabelText(/Venta a crédito/)).not.toBeChecked()
+    expect(screen.getByLabelText('Medio de pago')).toBeInTheDocument()
+  })
+
+  it('la venta rápida no manda cliente, descuento ni nota', async () => {
+    const { calls } = mockApi({ ...baseRoutes, 'POST /api/sales': () => venta(31) })
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    await agregar(user, 10)
+    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
+
+    await screen.findByText(/Venta #31 registrada/)
+    expect(calls.find((c) => c.method === 'POST')!.body).toEqual({ paymentMethod: 'CASH', items: [{ productId: 10, quantity: 1 }] })
+  })
+
+  it('"a crédito" solo se habilita con un cliente autorizado', async () => {
+    mockApi(baseRoutes)
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    const credito = await screen.findByLabelText(/Venta a crédito/)
+    expect(credito).toBeDisabled() // sin cliente
+
+    await user.selectOptions(screen.getByLabelText('Cliente (opcional)'), 'Pedro Sosa')
+    expect(credito).toBeDisabled() // cliente sin crédito
+
+    await user.selectOptions(screen.getByLabelText('Cliente (opcional)'), 'María Gómez (crédito autorizado)')
+    expect(credito).toBeEnabled()
+  })
+
+  it('a crédito oculta el medio de pago y no lo manda; al cambiar a un cliente sin crédito se destilda', async () => {
+    const { calls } = mockApi({
+      ...baseRoutes,
+      'POST /api/sales': () => venta(32, { paymentMethod: null, onCredit: true, accountId: 3, customer: { id: 5, name: 'María Gómez' } }),
+    })
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    await agregar(user, 10)
+    await user.selectOptions(screen.getByLabelText('Cliente (opcional)'), 'María Gómez (crédito autorizado)')
+
+    await user.click(screen.getByLabelText(/Venta a crédito/))
+    expect(screen.queryByLabelText('Medio de pago')).not.toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText('Cliente (opcional)'), 'Pedro Sosa')
+    expect(screen.getByLabelText(/Venta a crédito/)).not.toBeChecked()
+    expect(screen.getByLabelText('Medio de pago')).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText('Cliente (opcional)'), 'María Gómez (crédito autorizado)')
+    await user.click(screen.getByLabelText(/Venta a crédito/))
+    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
+
+    expect(await screen.findByText(/a crédito, suma a la cuenta corriente/)).toBeInTheDocument()
+    expect(calls.find((c) => c.method === 'POST')!.body).toEqual({
+      onCredit: true,
+      customerId: 5,
+      items: [{ productId: 10, quantity: 1 }],
+    })
+  })
+
+  it('si la API rechaza la venta muestra su mensaje y conserva cliente, descuento y nota', async () => {
+    mockApi({
+      ...baseRoutes,
+      'POST /api/sales': () => Response.json({ error: 'El descuento no puede ser igual o mayor al total de la venta' }, { status: 400 }),
+    })
+    const user = userEvent.setup()
+    render(<SalesPage />)
+    await agregar(user, 10)
+    await user.selectOptions(screen.getByLabelText('Cliente (opcional)'), 'Pedro Sosa')
+    await user.type(screen.getByLabelText('Descuento en pesos (opcional)'), '99999')
+    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('El descuento no puede ser igual o mayor al total de la venta')
+    expect(screen.getByLabelText('Descuento en pesos (opcional)')).toHaveValue('99999')
+    expect(screen.getByLabelText('Cliente (opcional)')).toHaveValue('6')
+    expect(screen.getByLabelText('Cantidad de Cuaderno A4')).toBeInTheDocument()
+  })
+
+  it('el historial muestra cliente, nota, descuento y "A crédito" cuando no hay medio de pago', async () => {
+    mockApi({
+      ...baseRoutes,
+      'GET /api/sales': () => [
+        venta(40, {
+          paymentMethod: null,
+          onCredit: true,
+          accountId: 3,
+          customer: { id: 5, name: 'María Gómez' },
+          note: 'Pedido escolar',
+          discount: '500.00',
+          total: '2501.00',
+        }),
+        venta(41),
+      ],
+    })
+    render(<SalesPage />)
+
+    const credito = (await screen.findByText('#40')).closest('tr')!
+    expect(within(credito).getByText('María Gómez')).toBeInTheDocument()
+    expect(within(credito).getByText('A crédito')).toBeInTheDocument()
+    expect(within(credito).getByText('Nota: Pedido escolar')).toBeInTheDocument()
+    expect(credito).toHaveTextContent(/desc\. \$\s?500,00/)
+    expect(credito).toHaveTextContent(/\$\s?2\.501,00/)
+
+    const comun = screen.getByText('#41').closest('tr')!
+    expect(within(comun).getByText('—')).toBeInTheDocument()
+    expect(comun).not.toHaveTextContent('desc.')
+    expect(comun).not.toHaveTextContent('Nota:')
   })
 })

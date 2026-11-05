@@ -14,8 +14,14 @@ export type SaleItem = {
 export type Sale = {
   id: number
   status: SaleStatus
-  paymentMethod: PaymentMethod
-  total: string
+  paymentMethod: PaymentMethod | null // null en las ventas a crédito: se cobra después
+  onCredit: boolean
+  customer: { id: number; name: string } | null
+  accountId: number | null // ficha de cuenta corriente, si es a crédito
+  subtotal: string
+  discount: string // descuento en pesos de toda la venta
+  total: string // subtotal menos descuento
+  note: string | null
   userId: number
   userName: string
   createdAt: string
@@ -24,9 +30,15 @@ export type Sale = {
   items: SaleItem[]
 }
 
-// Lo que se envía para registrar una venta rápida: el precio nunca va, lo pone el servidor.
+// Lo que se envía para registrar una venta: el precio nunca va, lo pone el servidor.
+// La venta rápida lleva solo medio de pago e ítems; la completa suma cliente, descuento y nota.
+// A crédito no se manda medio de pago (la API lo rechaza).
 export type SaleInput = {
-  paymentMethod: PaymentMethod
+  paymentMethod?: PaymentMethod
+  customerId?: number
+  discount?: string
+  note?: string
+  onCredit?: boolean
   items: { productId: number; quantity: number }[]
 }
 

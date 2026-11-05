@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import MainLayout from '@/components/layout/MainLayout'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 import LoginPage from '@/pages/auth/LoginPage'
+import AccountsPage from '@/pages/accounts/AccountsPage'
 import CategoriesPage from '@/pages/categories/CategoriesPage'
 import CustomersPage from '@/pages/customers/CustomersPage'
 import InventoryPage from '@/pages/inventory/InventoryPage'
@@ -23,6 +24,7 @@ export default function AppRoutes() {
           <Route path="/inventario" element={<InventoryPage />} />
           <Route path="/ventas" element={<SalesPage />} />
           <Route path="/clientes" element={<CustomersPage />} />
+          <Route path="/cuentas" element={<AccountsPage />} />
           <Route path="/configuracion" element={<SettingsPage />} />
         </Route>
       </Route>
