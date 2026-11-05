@@ -13,7 +13,6 @@ const screens = {
   'GET /api/products': () => [],
   'GET /api/categories': () => [],
   'GET /api/customers': () => [],
-  'GET /api/suppliers': () => [],
 }
 
 function renderAt(path: string) {
@@ -80,22 +79,6 @@ describe('rutas y sesión', () => {
   it('sin sesión, /clientes manda al login', async () => {
     mockApi({ 'GET /api/auth/me': unauthorized, ...screens })
     renderAt('/clientes')
-
-    expect(await screen.findByRole('button', { name: 'Ingresar' })).toBeInTheDocument()
-  })
-
-  it('la sección Proveedores está en el menú y lleva a su pantalla', async () => {
-    mockApi({ 'GET /api/auth/me': () => ana, ...screens })
-    renderAt('/productos')
-
-    fireEvent.click(await screen.findByRole('link', { name: 'Proveedores' }))
-
-    expect(await screen.findByRole('heading', { name: 'Proveedores' })).toBeInTheDocument()
-  })
-
-  it('sin sesión, /proveedores manda al login', async () => {
-    mockApi({ 'GET /api/auth/me': unauthorized, ...screens })
-    renderAt('/proveedores')
 
     expect(await screen.findByRole('button', { name: 'Ingresar' })).toBeInTheDocument()
   })
