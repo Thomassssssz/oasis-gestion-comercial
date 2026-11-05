@@ -9,6 +9,7 @@ import type { ApiState } from '@/types/api.types'
 const sections = [
   { to: '/productos', label: 'Productos' },
   { to: '/categorias', label: 'Categorías' },
+  { to: '/inventario', label: 'Inventario' },
 ]
 
 // Estructura de las pantallas con sesión abierta: cabecera, menú de secciones y, abajo, la pantalla elegida (Outlet).

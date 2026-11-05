@@ -3,6 +3,7 @@ import MainLayout from '@/components/layout/MainLayout'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 import LoginPage from '@/pages/auth/LoginPage'
 import CategoriesPage from '@/pages/categories/CategoriesPage'
+import InventoryPage from '@/pages/inventory/InventoryPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import ProductsPage from '@/pages/products/ProductsPage'
 
@@ -16,6 +17,7 @@ export default function AppRoutes() {
           <Route path="/" element={<Navigate to="/productos" replace />} />
           <Route path="/productos" element={<ProductsPage />} />
           <Route path="/categorias" element={<CategoriesPage />} />
+          <Route path="/inventario" element={<InventoryPage />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFoundPage />} />
