@@ -147,3 +147,18 @@ model SaleItem {
   @@unique([saleId, productId])
   @@index([productId])
 }
+
+// Cliente del comercio. Tiene su ficha individual (D14). No se borra: se da de baja (active = false).
+// creditAuthorized indica si puede comprar a crédito; hoy es solo una casilla, sin límite de deuda (D14-b).
+model Customer {
+  id               Int      @id @default(autoincrement())
+  name             String
+  phone            String?
+  dni              String?  @unique
+  address          String?
+  notes            String?
+  creditAuthorized Boolean  @default(false)
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}

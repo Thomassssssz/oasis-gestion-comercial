@@ -279,3 +279,30 @@ describe("esquema de la base de datos", () => {
     });
   });
 });
+
+describe("esquema: clientes", () => {
+  it("no permite dos clientes con el mismo DNI", async () => {
+    await prisma.customer.create({ data: { name: "Ana", dni: "30123456" } });
+
+    await expect(prisma.customer.create({ data: { name: "Otra", dni: "30123456" } })).rejects.toThrow();
+  });
+
+  it("permite varios clientes sin DNI (los NULL no se consideran iguales) y homónimos", async () => {
+    await prisma.customer.create({ data: { name: "Ana" } });
+    await prisma.customer.create({ data: { name: "Ana" } });
+
+    expect(await prisma.customer.count()).toBe(2);
+  });
+
+  it("no permite un nombre vacío o de solo espacios", async () => {
+    await expect(prisma.customer.create({ data: { name: "" } })).rejects.toThrow();
+    await expect(prisma.customer.create({ data: { name: "   " } })).rejects.toThrow();
+  });
+
+  it("por defecto el cliente nace activo y sin crédito autorizado", async () => {
+    const customer = await prisma.customer.create({ data: { name: "Ana" } });
+
+    expect(customer.active).toBe(true);
+    expect(customer.creditAuthorized).toBe(false);
+  });
+});

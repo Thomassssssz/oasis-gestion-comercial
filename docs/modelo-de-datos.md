@@ -144,3 +144,37 @@ El **total de la venta no se guarda**: es la suma de `quantity × unitPrice` de 
 - Que el motivo de anulación sea obligatorio (propuesta de Claude, D13-h).
 - Que no haga falta numerar las ventas con un número de comprobante propio (hoy se identifican por su `id`).
 
+
+## Módulo 4 – Clientes
+
+### Customer (Cliente)
+
+| Campo | Tipo | Detalle |
+|---|---|---|
+| id | entero, clave primaria | autoincremental |
+| name | texto, obligatorio | hasta 150 caracteres; no puede quedar vacío ni de solo espacios. Puede repetirse (D14-e) |
+| phone | texto, opcional | solo dígitos, espacios, `+`, `-` y paréntesis; de 6 a 30 caracteres (D14-f) |
+| dni | texto, opcional, **único** | 7 u 8 dígitos, sin puntos (D14-d). Se guarda como texto para no perder ceros ni tratarlo como número |
+| address | texto, opcional | hasta 200 caracteres |
+| notes | texto, opcional | observaciones, hasta 500 caracteres |
+| creditAuthorized | verdadero o falso | si puede comprar a crédito; por defecto `false` (D14-b) |
+| active | verdadero o falso | `false` es un cliente dado de baja; por defecto `true`. Un cliente no se borra (D14-c) |
+| createdAt, updatedAt | fecha y hora | cuándo se creó y se modificó por última vez |
+
+**Reglas que hace cumplir la propia base de datos:** el DNI no se repite (la restricción única admite varios clientes sin DNI, porque en PostgreSQL los valores `NULL` no se consideran iguales entre sí) y el nombre no puede estar vacío.
+
+Esta tabla todavía no se relaciona con otras: las ventas con cliente y las cuentas corrientes (módulo 5) la van a referenciar con una clave foránea `customerId`.
+
+### Por qué está en 3FN
+
+- La clave es un solo campo (`id`), así que se cumple 2FN: no hay dependencias de una parte de la clave.
+- Todos los datos (nombre, teléfono, DNI, dirección, observaciones, crédito, estado) describen al cliente y dependen solo de su `id`. Ninguno depende de otro dato que no sea la clave: no hay dependencias transitivas.
+- `dni` es una clave candidata (identifica al cliente, igual que `id`), por eso tiene restricción única; los demás datos dependen de la clave, no de otros campos no clave.
+- No hay grupos repetidos (un solo teléfono y una sola dirección por ficha, D14-a): se cumple 1FN. Si hiciera falta más de un teléfono, habría que pasar a una tabla aparte.
+- No se guarda ningún dato derivado (ni deuda ni cantidad de compras): se calculan cuando existan ventas y cuentas corrientes.
+
+### Supuestos a confirmar (no están relevados)
+
+- Que el DNI argentino de 7 u 8 dígitos alcance (deja afuera documentos de extranjeros o CUIT).
+- Que alcance con un solo teléfono y una sola dirección por cliente.
+- Que no haga falta un límite de deuda por cliente.

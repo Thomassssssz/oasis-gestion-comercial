@@ -88,3 +88,18 @@ Requieren sesión (401 si no hay). Venta rápida: el precio siempre es el de lis
 
 Reglas: hace falta al menos un producto (hasta 100) y no se puede repetir un producto en la misma venta; la cantidad es un entero mayor que cero. Si un producto no existe responde 400. Si un producto está dado de baja o no tiene stock suficiente, responde 409 con el producto y su stock actual, y **no se guarda nada** (todo o nada). Al confirmar se descuenta el stock; al anular se devuelve con un movimiento propio. Una venta anulada no se puede volver a anular (409) y sigue en el historial. El motivo de anulación es obligatorio (hasta 500 caracteres). Quién registra y quién anula sale de la sesión, nunca del cuerpo del pedido. No hay `PUT` ni `DELETE` (D3).
 
+
+## Clientes
+
+Requieren sesión (401 si no hay). Cada cliente tiene su ficha individual (D14).
+
+| Método y ruta | Qué hace | Respuestas |
+|---|---|---|
+| `GET /customers` | Lista ordenada por nombre. Filtros opcionales: `search` (busca en nombre, DNI y teléfono, sin distinguir mayúsculas), `active` (`true` o `false`), `creditAuthorized` (`true` o `false`) | 200, 400 |
+| `GET /customers/:id` | Devuelve una ficha | 200, 400, 404 |
+| `POST /customers` | Crea un cliente. Cuerpo: `{ "name", "phone", "dni", "address", "notes", "creditAuthorized" }` (solo `name` es obligatorio) | 201, 400, 409 |
+| `PUT /customers/:id` | Cambia todos los datos. Cuerpo: igual que al crear, más `"active": true/false` | 200, 400, 404, 409 |
+
+No hay `DELETE`: un cliente se da de baja con `"active": false` y se reactiva con `"active": true`, para no perder su historial. Un `PUT` reemplaza la ficha completa: los datos opcionales que no se envían quedan vacíos.
+
+Reglas: el nombre es obligatorio (hasta 150 caracteres) y puede repetirse. El DNI es opcional, tiene 7 u 8 dígitos y se acepta con puntos o espacios (`30.123.456`), pero se guarda y devuelve solo con dígitos; si ya lo tiene otro cliente responde 409. El teléfono es opcional: números, espacios, `+`, `-` y paréntesis, de 6 a 30 caracteres. La dirección admite hasta 200 caracteres y las observaciones hasta 500. Un texto opcional enviado vacío o con solo espacios se guarda como sin dato (`null`). Al crear, `creditAuthorized` es `false` por defecto y el cliente siempre nace activo.

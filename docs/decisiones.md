@@ -112,3 +112,16 @@ Decisiones elegidas por el autor (a, b, c) y reglas que propuso Claude (d a i) p
 - **h) Motivo de anulación obligatorio (propuesta):** para que quede registrado por qué se anuló (hasta 500 caracteres).
 - **i) Quién puede anular (propuesta):** cualquier usuario con sesión, porque no hay roles (D4). Si más adelante se quiere limitar, se define con los propietarios.
 - **Protección contra operaciones simultáneas:** al vender o anular se bloquean las filas de los productos involucrados, así dos ventas al mismo tiempo no pueden vender el mismo stock dos veces.
+
+## D14 – Cómo se guarda la ficha de un cliente
+
+Decisiones elegidas por el autor (a, b, c) y reglas que propuso Claude (d a g). Las reglas propuestas hay que revisarlas y poder defenderlas.
+
+- **a) Datos de la ficha (autor):** nombre (obligatorio), teléfono, DNI, dirección y observaciones. Todos menos el nombre son opcionales.
+- **b) Crédito con una casilla (autor):** cada cliente está autorizado o no a comprar a crédito (`creditAuthorized`, por defecto no). No hay límite de deuda: no se relevó que exista, y no se inventa. Si los propietarios definen uno, se agrega después.
+- **c) Los clientes no se borran (autor):** se dan de baja (`active = false`), como los productos. Así queda el historial de sus ventas y cuentas corrientes. Un cliente de baja no puede comprar a crédito (regla que se aplica cuando existan las cuentas corrientes).
+- **d) DNI único (propuesta):** si se carga un DNI, no puede repetirse en otro cliente (dos personas no comparten DNI). Se guarda solo con dígitos (se aceptan puntos y espacios al escribirlo) y tiene 7 u 8 dígitos. **Esto deja afuera documentos de extranjeros o CUIT; confirmar con los propietarios si hacen falta.**
+- **e) Nombre repetido permitido (propuesta):** puede haber dos clientes con el mismo nombre (homónimos); el DNI es lo que los distingue.
+- **f) Teléfono libre con formato básico (propuesta):** solo dígitos, espacios, `+`, `-` y paréntesis, de 6 a 30 caracteres. No se normaliza a un formato único.
+- **g) Búsqueda (propuesta):** el buscador del listado mira el nombre, el DNI y el teléfono.
+- **Datos personales:** la ficha guarda datos personales (DNI, teléfono, dirección). Antes de usar datos reales hay que revisar la protección de datos personales aplicable (Ley 25.326 en Argentina) y los permisos del hosting (Render y Neon).
