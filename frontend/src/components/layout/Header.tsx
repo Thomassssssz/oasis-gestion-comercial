@@ -1,6 +1,7 @@
-import { RefreshCw } from 'lucide-react'
+import { LogOut, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { ApiState } from '@/types/api.types'
+import type { AuthUser } from '@/types/auth.types'
 
 const messages: Record<ApiState, string> = {
   loading: 'Consultando la API…',
@@ -18,14 +19,16 @@ const statusStyles: Record<ApiState, string> = {
 type Props = {
   apiState: ApiState
   onRetry: () => void
+  user: AuthUser
+  onLogout: () => void
 }
 
-// Cabecera de todas las pantallas: título del sistema y estado de la conexión con la API.
-export default function Header({ apiState, onRetry }: Props) {
+// Cabecera de todas las pantallas con sesión: título, estado de la conexión con la API y quién está usando el sistema.
+export default function Header({ apiState, onRetry, user, onLogout }: Props) {
   return (
     <header className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
       <h1 className="text-2xl font-bold">Oasis – Gestión Comercial</h1>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <p className={`rounded-full px-3 py-1 text-sm font-semibold ${statusStyles[apiState]}`} role="status">
           {messages[apiState]}
         </p>
@@ -35,6 +38,11 @@ export default function Header({ apiState, onRetry }: Props) {
             Reintentar
           </Button>
         )}
+        <span className="text-sm text-muted-foreground">{user.fullName}</span>
+        <Button variant="outline" size="sm" onClick={onLogout}>
+          <LogOut />
+          Salir
+        </Button>
       </div>
     </header>
   )
