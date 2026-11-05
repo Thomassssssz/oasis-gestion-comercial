@@ -84,3 +84,16 @@ Esta decisión de diseño la propuso Claude y no fue elegida entre opciones por 
 - **Cómo funciona:** al abrir la app, `AuthProvider` le pregunta a la API quién tiene la sesión abierta (`GET /api/auth/me`). Si no hay sesión, `ProtectedRoute` manda a `/login`. Si en cualquier momento la API responde 401 (por ejemplo, la sesión venció a las 12 horas), la app vuelve sola al login.
 - **Alternativa descartada:** seguir con el estado interno `Section` y un login que reemplace toda la pantalla (no se podía abrir ni recargar una sección concreta).
 - **Límite conocido:** el frontend no guarda la sesión: la guarda el navegador en la cookie `HttpOnly` que entrega el servidor (ver D9). Cambiar la contraseña desde la pantalla todavía no existe (la API sí lo permite).
+
+## D12 – Cómo se registran los movimientos de stock
+
+Decisiones elegidas por el autor (a, b, c) y reglas que propuso Claude (d a g) para aplicar D1, D2, D6 y D7. Las reglas propuestas hay que revisarlas y poder defenderlas.
+
+- **a) Cantidad con signo (autor):** cada movimiento tiene una sola columna `quantity`: positiva si entra mercadería y negativa si sale. El stock de un producto es la suma de esa columna. Alternativa descartada: dos columnas (entrada y salida), porque se podría cargar un dato inválido con las dos con valor.
+- **b) Stock inicial como tipo propio (autor):** el stock que el comercio ya tiene al empezar se carga con el tipo `INITIAL_STOCK`, distinto de los ajustes. Así el historial muestra claramente cuál fue la carga de arranque.
+- **c) El ajuste se escribe como diferencia (autor):** quien ajusta indica cuántas unidades suma o resta (por ejemplo, -2 por rotura), no el stock real contado. Así el movimiento guardado no depende de cuánto stock había en ese momento.
+- **d) Tipos de movimiento hoy:** `INITIAL_STOCK` y `ADJUSTMENT`. Las ventas, anulaciones y compras agregan sus propios tipos cuando se construyan esos módulos.
+- **e) Reglas del stock inicial (propuesta):** cantidad mayor que cero, y solo se puede cargar si el producto todavía no tiene ningún movimiento (si ya tiene, se corrige con un ajuste).
+- **f) Reglas del ajuste (propuesta):** la cantidad es un entero distinto de cero (D6), lleva un motivo de la lista fija de D7 y, si el motivo es "otro", una nota obligatoria. Un ajuste no puede dejar el stock por debajo de cero (misma idea que D2). **Esto resuelve en la práctica el punto pendiente de "stock negativo"; confirmar con los propietarios.**
+- **g) Trazabilidad:** cada movimiento guarda quién lo hizo (`userId`) y cuándo (`createdAt`). Los movimientos no se editan ni se borran: un error se corrige con otro movimiento. Un producto dado de baja puede recibir ajustes (por ejemplo, para llevar su stock a cero).
+- **Protección contra dos operaciones a la vez:** al registrar un movimiento se bloquea la fila del producto durante la operación, así dos ajustes simultáneos no pueden dejar el stock en negativo.
