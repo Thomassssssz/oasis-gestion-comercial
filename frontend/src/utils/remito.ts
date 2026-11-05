@@ -63,7 +63,7 @@ export function serverValues(customer: Customer, account: CreditAccount | null, 
 
 // Un renglón de la grilla del remito. `kind` distingue lo que se llevó (item) de lo que ajusta la cuenta.
 export type RemitoLine = {
-  kind: 'item' | 'discount' | 'surcharge' | 'payment'
+  kind: 'item' | 'surcharge' | 'payment'
   quantity: string
   detail: string
   unitPrice: string
@@ -72,7 +72,7 @@ export type RemitoLine = {
 
 export type RemitoTotals = {
   lines: RemitoLine[]
-  totalCents: number // ventas − descuentos + recargos registrados
+  totalCents: number // ventas + recargos registrados
   paidCents: number // pagos
   balanceCents: number // saldo que calcula el servidor
   pendingCents: number // recargos que ya corresponden y todavía no se registraron
@@ -84,7 +84,7 @@ const shortDay = new Intl.DateTimeFormat('es-AR', { dateStyle: 'short' })
 
 // Arma los renglones y los totales del remito a partir de la ficha abierta. Los importes salen de lo que calcula el servidor;
 // acá solo se ordenan y se suman en centavos para no arrastrar errores de decimales.
-// Orden: lo que se llevó el cliente (con su descuento), los recargos por mora registrados y, al final, los pagos (restan).
+// Orden: lo que se llevó el cliente, los recargos por mora registrados y, al final, los pagos (restan).
 // Las ventas anuladas no figuran: el cliente no se llevó esos artículos.
 export function buildRemito(account: CreditAccount | null): RemitoTotals {
   if (!account) return { lines: [], totalCents: 0, paidCents: 0, balanceCents: 0, pendingCents: 0, payableCents: 0 }
@@ -101,9 +101,6 @@ export function buildRemito(account: CreditAccount | null): RemitoTotals {
         unitPrice: peso.format(Number(item.unitPrice)),
         total: peso.format(Number(item.subtotal)),
       })
-    }
-    if (Number(sale.discount) > 0) {
-      lines.push({ kind: 'discount', quantity: '', detail: 'Descuento', unitPrice: '', total: `− ${peso.format(Number(sale.discount))}` })
     }
   }
   for (const s of account.surcharges) {

@@ -638,7 +638,7 @@ describe('SalesPage – venta completa', () => {
     expect(screen.getByLabelText('Cantidad de Cuaderno A4')).toBeInTheDocument()
   })
 
-  it('el historial muestra cliente, nota, descuento y "A crédito" cuando no hay medio de pago', async () => {
+  it('el historial muestra cliente, nota y "A crédito" cuando no hay medio de pago, y no muestra descuentos', async () => {
     mockApi({
       ...baseRoutes,
       'GET /api/sales': () => [
@@ -660,7 +660,7 @@ describe('SalesPage – venta completa', () => {
     expect(within(credito).getByText('María Gómez')).toBeInTheDocument()
     expect(within(credito).getByText('A crédito')).toBeInTheDocument()
     expect(within(credito).getByText('Nota: Pedido escolar')).toBeInTheDocument()
-    expect(credito).toHaveTextContent(/desc\. \$\s?500,00/)
+    expect(credito).not.toHaveTextContent('desc.') // aunque la venta vieja tenga uno guardado
     expect(credito).toHaveTextContent(/\$\s?2\.501,00/)
 
     const comun = screen.getByText('#41').closest('tr')!

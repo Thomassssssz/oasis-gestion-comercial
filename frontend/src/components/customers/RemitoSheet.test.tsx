@@ -47,7 +47,7 @@ function Remito({ initial = vacios, changed = new Set<FieldKey>(), ...extra }: E
   )
 }
 
-const linea = (kind: 'item' | 'discount' | 'surcharge' | 'payment', detail: string, total = '$ 10,00') => ({ kind, quantity: kind === 'item' ? '1' : '', detail, unitPrice: '', total })
+const linea = (kind: 'item' | 'surcharge' | 'payment', detail: string, total = '$ 10,00') => ({ kind, quantity: kind === 'item' ? '1' : '', detail, unitPrice: '', total })
 const conRenglones = (lines: ReturnType<typeof linea>[], extra: Partial<RemitoTotals> = {}): RemitoTotals => ({
   lines,
   totalCents: 0,
@@ -301,11 +301,11 @@ describe('RemitoSheet: renglones y totales', () => {
     expect(within(screen.getByText('Artículo 1').closest('tbody')!).getAllByRole('row', { hidden: true })).toHaveLength(12)
   })
 
-  it('los renglones que no son artículos (descuento, recargo, pago) van en cursiva; los artículos no', () => {
-    render(<Remito remito={conRenglones([linea('item', 'Cuaderno'), linea('discount', 'Descuento'), linea('surcharge', 'Recargo'), linea('payment', 'Pago')])} />)
+  it('los renglones que no son artículos (recargo, pago) van en cursiva; los artículos no', () => {
+    render(<Remito remito={conRenglones([linea('item', 'Cuaderno'), linea('surcharge', 'Recargo'), linea('payment', 'Pago')])} />)
 
     expect(screen.getByText('Cuaderno')).not.toHaveClass('italic')
-    for (const detalle of ['Descuento', 'Recargo', 'Pago']) expect(screen.getByText(detalle)).toHaveClass('italic')
+    for (const detalle of ['Recargo', 'Pago']) expect(screen.getByText(detalle)).toHaveClass('italic')
   })
 
   it('el pie muestra TOTAL, PAGADO y SALDO en pesos', () => {

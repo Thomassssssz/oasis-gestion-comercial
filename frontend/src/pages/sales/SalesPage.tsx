@@ -150,11 +150,6 @@ export default function SalesPage() {
                   <td className="px-3 py-2">{sale.paymentMethod ? paymentMethodLabels[sale.paymentMethod] : 'A crédito'}</td>
                   <td className={`px-3 py-2 text-right ${sale.status === 'ANNULLED' ? 'line-through' : ''}`}>
                     {peso.format(Number(sale.total))}
-                    {Number(sale.discount) > 0 && (
-                      <span className="block text-xs text-muted-foreground no-underline">
-                        desc. {peso.format(Number(sale.discount))}
-                      </span>
-                    )}
                   </td>
                   <td className="px-3 py-2">
                     {sale.status === 'CONFIRMED' ? (

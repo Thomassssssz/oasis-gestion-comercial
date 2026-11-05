@@ -215,12 +215,13 @@ describe('CustomerFichaPage: renglones y totales', () => {
     expect(screen.getByText('Carpeta')).toBeInTheDocument()
   })
 
-  it('el descuento va en su propia línea y el TOTAL del remito lo descuenta', async () => {
-    api([ficha(3)])
+  it('el remito no tiene línea de descuento y el TOTAL es el que calcula el servidor', async () => {
+    api([ficha(3)]) // la segunda venta del ejemplo viene con un descuento guardado de 10
     render()
 
-    expect((await screen.findByText('Descuento')).closest('tr')).toHaveTextContent(/−\s*\$\s?10,00/)
-    expect(screen.getByTestId('remito-total')).toHaveTextContent(/\$\s?450,00/) // 350 + (110 − 10)
+    await screen.findByText('Cuaderno rayado')
+    expect(screen.queryByText('Descuento')).not.toBeInTheDocument()
+    expect(screen.getByTestId('remito-total')).toHaveTextContent(/\$\s?450,00/)
   })
 
   it('una venta anulada no figura en el remito ni suma al total, y no hay aviso aparte', async () => {

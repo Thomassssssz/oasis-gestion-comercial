@@ -138,16 +138,12 @@ describe('buildRemito', () => {
     expect(balanceCents).toBe(35000)
   })
 
-  it('el descuento es un renglón propio que resta, y el total lo descuenta', () => {
+  it('no hay renglón de descuento: el comercio ya no hace descuentos (D25); el total es el que calcula el servidor', () => {
     const { lines, totalCents } = buildRemito(cuenta({ sales: [{ ...cuenta().sales[0]!, discount: '50.00', total: '300.00' }], balance: '300.00' }))
 
-    expect(lines.at(-1)).toMatchObject({ kind: 'discount', detail: 'Descuento', quantity: '', unitPrice: '' })
-    expect(lines.at(-1)!.total).toMatch(/^−\s*\$\s?50,00$/)
+    expect(lines.map((l) => l.kind)).toEqual(['item', 'item']) // solo los dos artículos
+    expect(lines.some((l) => l.detail === 'Descuento')).toBe(false)
     expect(totalCents).toBe(30000)
-  })
-
-  it('sin descuento no hay renglón de descuento', () => {
-    expect(buildRemito(cuenta()).lines.some((l) => l.kind === 'discount')).toBe(false)
   })
 
   it('las ventas anuladas no figuran ni suman', () => {
