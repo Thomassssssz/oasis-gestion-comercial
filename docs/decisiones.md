@@ -134,3 +134,14 @@ Decisiones elegidas por el autor (a, b, c) y reglas que propuso Claude (d a g). 
   - El stock entra solo por *stock inicial* y *ajustes manuales con motivo* (D12). El motivo de ajuste "devolución a proveedor" (D7) se mantiene: es una forma de restar stock, no un registro de proveedores.
   - Durante un momento existió una tabla `Supplier` (migración `20261104250000_suppliers`) que se eliminó con la migración `20261104260000_drop_suppliers`. No tenía relación con otras tablas y no se perdió información. Las migraciones ya aplicadas no se borran del historial; se agrega una nueva que deshace el cambio.
 - **Consecuencia para la estimación:** los reportes futuros no pueden incluir costos de compra, porque no se guardan. Si más adelante hicieran falta, hay que volver a decidirlo.
+
+## D16 – Parámetros del sistema (configuración)
+
+La regla confirmada es que el recargo por mora es del 5% por mes y es un **parámetro configurable**. El resto son propuestas de Claude que hay que revisar y poder defender.
+
+- **a) Una sola fila de parámetros:** la tabla `Setting` tiene una única fila (la base lo exige con `id = 1`). Hoy tiene un solo parámetro, `lateFeePercent`, con valor inicial 5. Si más adelante hay más parámetros, se agregan como columnas de esa fila.
+- **b) Rango (propuesta):** de 0 a 100, con hasta 2 decimales. 0 significa "sin recargo".
+- **c) Se registra quién lo cambió (propuesta):** la fila guarda el último usuario que lo modificó y cuándo. Eso sale de la sesión, nunca del cuerpo del pedido.
+- **d) Cambiar el porcentaje no reescribe el pasado:** los recargos que se registren van a guardar el porcentaje con el que se calcularon. Así no se recalcula nada en silencio.
+- **e) Cualquier usuario puede cambiarlo (a confirmar):** todavía no hay roles de usuario (D4), así que los dos propietarios pueden modificarlo.
+- **Cambio de contraseña:** la pantalla de Configuración también permite cambiar la propia contraseña (usa la API que ya existía, que cierra las demás sesiones).

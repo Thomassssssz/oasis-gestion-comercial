@@ -306,3 +306,26 @@ describe("esquema: clientes", () => {
     expect(customer.creditAuthorized).toBe(false);
   });
 });
+
+describe("esquema: parámetros", () => {
+  it("tiene una sola fila posible (id = 1) y el recargo por defecto es 5", async () => {
+    const setting = await prisma.setting.create({ data: {} });
+
+    expect(setting.id).toBe(1);
+    expect(setting.lateFeePercent.toFixed(2)).toBe("5.00");
+    await expect(prisma.setting.create({ data: { id: 2 } })).rejects.toThrow();
+  });
+
+  it("el porcentaje de recargo va de 0 a 100", async () => {
+    await expect(prisma.setting.create({ data: { lateFeePercent: "100.01" } })).rejects.toThrow();
+    await expect(prisma.setting.create({ data: { lateFeePercent: "-0.01" } })).rejects.toThrow();
+    await expect(prisma.setting.create({ data: { lateFeePercent: "100" } })).resolves.toBeTruthy();
+  });
+
+  it("no permite borrar un usuario que cambió los parámetros", async () => {
+    const user = await prisma.user.create({ data: { username: "ana", fullName: "Ana", passwordHash: "x" } });
+    await prisma.setting.create({ data: { updatedById: user.id } });
+
+    await expect(prisma.user.delete({ where: { id: user.id } })).rejects.toThrow();
+  });
+});

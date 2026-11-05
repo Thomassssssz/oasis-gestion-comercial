@@ -103,3 +103,14 @@ Requieren sesión (401 si no hay). Cada cliente tiene su ficha individual (D14).
 No hay `DELETE`: un cliente se da de baja con `"active": false` y se reactiva con `"active": true`, para no perder su historial. Un `PUT` reemplaza la ficha completa: los datos opcionales que no se envían quedan vacíos.
 
 Reglas: el nombre es obligatorio (hasta 150 caracteres) y puede repetirse. El DNI es opcional, tiene 7 u 8 dígitos y se acepta con puntos o espacios (`30.123.456`), pero se guarda y devuelve solo con dígitos; si ya lo tiene otro cliente responde 409. El teléfono es opcional: números, espacios, `+`, `-` y paréntesis, de 6 a 30 caracteres. La dirección admite hasta 200 caracteres y las observaciones hasta 500. Un texto opcional enviado vacío o con solo espacios se guarda como sin dato (`null`). Al crear, `creditAuthorized` es `false` por defecto y el cliente siempre nace activo.
+
+## Parámetros
+
+Requieren sesión (401 si no hay). Hoy hay un solo parámetro: el recargo por mora (D16).
+
+| Método y ruta | Qué hace | Respuestas |
+|---|---|---|
+| `GET /settings` | Devuelve `{ "lateFeePercent", "updatedAt", "updatedBy" }`. `lateFeePercent` es texto con 2 decimales (`"5.00"`) y `updatedBy` es `{ id, fullName }`, o `null` si nadie lo cambió todavía | 200 |
+| `PUT /settings` | Cambia los parámetros. Cuerpo: `{ "lateFeePercent": "7.5" }` (texto o número) | 200, 400 |
+
+Reglas: el porcentaje va de 0 a 100 con hasta 2 decimales y punto decimal (la coma se rechaza). Quién lo cambió sale de la sesión, nunca del cuerpo. No se pueden crear ni borrar parámetros.

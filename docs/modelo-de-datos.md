@@ -178,3 +178,27 @@ Esta tabla todavía no se relaciona con otras: las ventas con cliente y las cuen
 - Que el DNI argentino de 7 u 8 dígitos alcance (deja afuera documentos de extranjeros o CUIT).
 - Que alcance con un solo teléfono y una sola dirección por cliente.
 - Que no haga falta un límite de deuda por cliente.
+
+## Módulo 8 (parte) – Parámetros del sistema
+
+### Setting (Parámetros)
+
+| Campo | Tipo | Detalle |
+|---|---|---|
+| id | entero, clave primaria | siempre vale 1: la base de datos solo admite una fila (D16-a) |
+| lateFeePercent | decimal(5,2) entre 0 y 100 | porcentaje de recargo por cada mes de atraso; por defecto 5 |
+| updatedAt | fecha y hora | cuándo se modificó por última vez |
+| updatedById | entero, clave foránea → User, opcional | quién lo modificó por última vez; vacío mientras nadie lo cambió. No se puede borrar un usuario que figure acá |
+
+**Reglas que hace cumplir la propia base de datos:** una sola fila (`id = 1`) y porcentaje entre 0 y 100.
+
+### Por qué está en 3FN
+
+- La clave es un solo campo (`id`): se cumple 2FN.
+- `lateFeePercent`, `updatedAt` y `updatedById` dependen solo de la clave. El nombre de quien lo modificó no se repite: se llega a él con `updatedById`.
+- No hay datos derivados guardados.
+
+### Supuestos a confirmar (no están relevados)
+
+- Que cualquier usuario pueda cambiar el porcentaje (hoy no hay roles, D4).
+- Que el rango de 0 a 100 sea suficiente.

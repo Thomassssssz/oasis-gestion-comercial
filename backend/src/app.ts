@@ -10,6 +10,7 @@ import { createCustomerRouter } from "./routes/customer.routes.js";
 import { healthRouter } from "./routes/health.routes.js";
 import { createProductRouter } from "./routes/product.routes.js";
 import { createSaleRouter } from "./routes/sale.routes.js";
+import { createSettingRouter } from "./routes/setting.routes.js";
 import { createStockMovementRouter } from "./routes/stock-movement.routes.js";
 import { createAuthService } from "./services/auth.service.js";
 
@@ -39,6 +40,7 @@ export function createApp({ prisma, loginLimiter = createLoginLimiter(), now }: 
   app.use("/api/stock-movements", requireAuth, createStockMovementRouter(prisma));
   app.use("/api/sales", requireAuth, createSaleRouter(prisma));
   app.use("/api/customers", requireAuth, createCustomerRouter(prisma));
+  app.use("/api/settings", requireAuth, createSettingRouter(prisma));
 
   // Cualquier ruta que no exista responde 404 en formato JSON.
   app.use((_req, res) => {

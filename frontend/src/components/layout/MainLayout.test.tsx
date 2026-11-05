@@ -32,17 +32,18 @@ beforeEach(() => localStorage.clear())
 afterEach(() => vi.restoreAllMocks())
 
 describe('barra lateral', () => {
-  it('muestra las cinco secciones, cada una con su ícono y su dirección', async () => {
+  it('muestra las seis secciones, cada una con su ícono y su dirección', async () => {
     await renderAt()
 
     const links = within(screen.getByRole('navigation', { name: 'Secciones' })).getAllByRole('link')
-    expect(links.map((link) => link.textContent)).toEqual(['Productos', 'Categorías', 'Inventario', 'Ventas', 'Clientes'])
+    expect(links.map((link) => link.textContent)).toEqual(['Productos', 'Categorías', 'Inventario', 'Ventas', 'Clientes', 'Configuración'])
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
       '/productos',
       '/categorias',
       '/inventario',
       '/ventas',
       '/clientes',
+      '/configuracion',
     ])
     links.forEach((link) => expect(link.querySelector('svg')).not.toBeNull())
   })

@@ -48,6 +48,7 @@ model User {
   stockMovements StockMovement[]
   sales          Sale[]          @relation("SaleCreatedBy")
   annulledSales  Sale[]          @relation("SaleAnnulledBy")
+  settingChanges Setting[]
 }
 
 // Sesión abierta de un usuario. Se guarda el hash del código de la cookie, no el código (D9).
@@ -161,4 +162,13 @@ model Customer {
   active           Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+// Parámetros del sistema. Hay una sola fila (id = 1). El recargo por mora es un parámetro configurable (D16).
+model Setting {
+  id             Int      @id @default(1)
+  lateFeePercent Decimal  @default(5) @db.Decimal(5, 2)
+  updatedAt      DateTime @updatedAt
+  updatedById    Int?
+  updatedBy      User?    @relation(fields: [updatedById], references: [id], onDelete: Restrict)
 }
