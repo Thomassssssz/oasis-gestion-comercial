@@ -68,12 +68,20 @@ export function createCreditAccountService(repository: CreditAccountRepository, 
         createdAt: p.createdAt,
         userName: p.user.fullName,
       })),
+      // Cada venta con sus artículos (lo que va en la ficha impresa): cantidad, detalle, precio unitario y total de la línea.
       sales: account.sales.map((sale) => ({
         id: sale.id,
         status: sale.status,
         createdAt: sale.createdAt,
         note: sale.note,
+        discount: money(sale.discountAmount),
         total: money(totalOf(sale.items, sale.discountAmount)),
+        items: sale.items.map((item) => ({
+          productName: item.product.name,
+          quantity: item.quantity,
+          unitPrice: money(item.unitPrice),
+          subtotal: money(item.unitPrice.mul(item.quantity)),
+        })),
       })),
     };
   }

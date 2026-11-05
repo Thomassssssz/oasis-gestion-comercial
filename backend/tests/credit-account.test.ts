@@ -66,6 +66,29 @@ describe("GET /api/accounts/:id", () => {
     expect(response.body.sales[0]).toMatchObject({ id: first.body.id, total: "250.00", note: "Pedido escolar", status: "CONFIRMED" });
   });
 
+  it("cada venta trae sus artículos con cantidad, detalle, precio unitario y total de la línea, y el descuento", async () => {
+    const cliente = await seedCustomer("Ana");
+    const userId = (await prisma.user.findFirstOrThrow()).id;
+    const lapicera = await prisma.product.create({ data: { name: "Lapicera", categoryId: (await prisma.category.findFirstOrThrow()).id, salePrice: "25.50" } });
+    await prisma.stockMovement.create({ data: { productId: lapicera.id, userId, type: "INITIAL_STOCK", quantity: 50 } });
+    const sale = await agent.post("/api/sales").send({
+      customerId: cliente,
+      onCredit: true,
+      discount: "10.00",
+      items: [{ productId, quantity: 3 }, { productId: lapicera.id, quantity: 4 }],
+    });
+    // Un cambio de precio posterior no toca lo ya vendido: la ficha guarda el precio de ese momento.
+    await prisma.product.update({ where: { id: productId }, data: { salePrice: "999.00" } });
+
+    const response = await agent.get(`/api/accounts/${sale.body.accountId}`);
+
+    expect(response.body.sales[0]).toMatchObject({ discount: "10.00", total: "392.00" }); // 300 + 102 − 10
+    expect(response.body.sales[0].items).toEqual([
+      { productName: "Cuaderno", quantity: 3, unitPrice: "100.00", subtotal: "300.00" },
+      { productName: "Lapicera", quantity: 4, unitPrice: "25.50", subtotal: "102.00" },
+    ]);
+  });
+
   it("las ventas anuladas no suman al saldo pero siguen en la ficha", async () => {
     const cliente = await seedCustomer("Ana");
     const first = await creditSale(cliente, 3);

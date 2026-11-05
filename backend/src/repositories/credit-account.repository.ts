@@ -88,7 +88,7 @@ const accountInclude = {
       annulledAt: true,
       discountAmount: true,
       note: true,
-      items: { select: { quantity: true, unitPrice: true } },
+      items: { orderBy: { id: "asc" }, select: { quantity: true, unitPrice: true, product: { select: { name: true } } } },
     },
   },
 } as const satisfies Prisma.CreditAccountInclude;
