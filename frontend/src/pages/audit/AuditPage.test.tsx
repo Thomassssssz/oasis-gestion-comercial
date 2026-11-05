@@ -88,7 +88,7 @@ describe('AuditPage', () => {
   })
 
   it('un filtro de solo una fecha también muestra el botón de limpiar', async () => {
-    mockApi({ 'GET /api/audit': () => [] })
+    const { calls } = mockApi({ 'GET /api/audit': () => [] })
     const user = userEvent.setup()
     render(<AuditPage />)
     await screen.findByText('No hay anotaciones con estos filtros.')
@@ -96,6 +96,8 @@ describe('AuditPage', () => {
     await user.type(screen.getByLabelText('Hasta'), '2026-11-30')
 
     expect(await screen.findByRole('button', { name: 'Limpiar filtros' })).toBeInTheDocument()
+    await waitFor(() => expect(calls.at(-1)!.query.get('to')).toBe('2026-11-30'))
+    expect(calls.at(-1)!.query.has('from')).toBe(false)
   })
 
   it('sin resultados lo dice', async () => {
@@ -125,5 +127,20 @@ describe('AuditPage', () => {
     render(<AuditPage />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Datos inválidos')
+  })
+
+  it('al corregir los filtros después de un error, el aviso desaparece y se ve la lista', async () => {
+    mockApi({
+      'GET /api/audit': (call) =>
+        call.query.get('action') ? [anotacion(1)] : Response.json({ error: 'Datos inválidos' }, { status: 400 }),
+    })
+    const user = userEvent.setup()
+    render(<AuditPage />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Datos inválidos')
+
+    await user.selectOptions(screen.getByLabelText('Acción'), 'Venta anulada')
+
+    expect(await screen.findByText('Anuló la venta #12. Motivo: Cargué mal')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })

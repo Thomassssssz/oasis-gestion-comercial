@@ -65,6 +65,58 @@ describe('SettingsPage: recargo por mora', () => {
     expect(screen.queryByText('Porcentaje guardado.')).not.toBeInTheDocument()
   })
 
+  it('al volver a guardar, desaparece el aviso de éxito anterior', async () => {
+    let intento = 0
+    mockApi({
+      'GET /api/settings': () => porDefecto,
+      'PUT /api/settings': () => (++intento === 1 ? cambiado : Response.json({ error: 'Datos inválidos' }, { status: 400 })),
+    })
+    const user = userEvent.setup()
+    render(<SettingsPage />)
+    await user.click(await screen.findByRole('button', { name: 'Guardar porcentaje' }))
+    await screen.findByText('Porcentaje guardado.')
+
+    await user.click(screen.getByRole('button', { name: 'Guardar porcentaje' }))
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.queryByText('Porcentaje guardado.')).not.toBeInTheDocument()
+  })
+
+  it('después de un error, un guardado correcto borra el aviso de error', async () => {
+    let intento = 0
+    mockApi({
+      'GET /api/settings': () => porDefecto,
+      'PUT /api/settings': () => (++intento === 1 ? Response.json({ error: 'Datos inválidos' }, { status: 400 }) : cambiado),
+    })
+    const user = userEvent.setup()
+    render(<SettingsPage />)
+    await user.click(await screen.findByRole('button', { name: 'Guardar porcentaje' }))
+    await screen.findByRole('alert')
+
+    await user.click(screen.getByRole('button', { name: 'Guardar porcentaje' }))
+
+    expect(await screen.findByText('Porcentaje guardado.')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('mientras guarda, el botón queda deshabilitado para no duplicar el pedido', async () => {
+    const { fetchMock } = mockApi({ 'GET /api/settings': () => porDefecto })
+    let terminar: (r: Response) => void = () => {}
+    const original = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (input: string, init?: RequestInit) =>
+      init?.method === 'PUT' ? new Promise<Response>((resolve) => (terminar = resolve)) : original(input, init),
+    )
+    const user = userEvent.setup()
+    render(<SettingsPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'Guardar porcentaje' }))
+    expect(screen.getByRole('button', { name: 'Guardar porcentaje' })).toBeDisabled()
+
+    terminar(Response.json(cambiado))
+    await screen.findByText('Porcentaje guardado.')
+    expect(screen.getByRole('button', { name: 'Guardar porcentaje' })).toBeEnabled()
+  })
+
   it('avisa si no hay conexión con el servidor', async () => {
     mockApi({ 'GET /api/settings': () => new Error('red caída') })
     render(<SettingsPage />)
