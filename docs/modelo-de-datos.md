@@ -70,3 +70,35 @@ El **stock no es un campo** de Product: se calcula sumando los movimientos de in
 - Cada tabla tiene clave de un solo campo (`id`), así que se cumple 2FN.
 - Los datos del usuario (nombre, hash) están solo en User; Session apunta con `userId` y no repite el nombre del usuario (3FN).
 - No hay roles ni permisos guardados: todos los usuarios son propietarios (decisión D4).
+
+## Módulo 2 – Inventario y movimientos
+
+### StockMovement (Movimiento de stock)
+
+| Campo | Tipo | Detalle |
+|---|---|---|
+| id | entero, clave primaria | autoincremental |
+| productId | entero, clave foránea → Product | no se puede borrar un producto que tiene movimientos |
+| type | `INITIAL_STOCK` o `ADJUSTMENT` | stock inicial o ajuste manual (las ventas y compras agregan sus tipos en sus módulos) |
+| quantity | entero con signo | positivo = entra mercadería, negativo = sale. Nunca cero |
+| reason | `PHYSICAL_COUNT`, `DAMAGE_OR_LOSS`, `SUPPLIER_RETURN` u `OTHER` | motivo del ajuste (conteo físico, rotura o pérdida, devolución a proveedor, otro). Solo los ajustes lo llevan |
+| note | texto, opcional | obligatoria cuando el motivo es `OTHER` |
+| userId | entero, clave foránea → User | quién registró el movimiento (auditoría). No se puede borrar un usuario con movimientos |
+| createdAt | fecha y hora | cuándo se registró |
+
+El **stock de un producto** es la suma de `quantity` de todos sus movimientos (D1). Un producto está en **alerta** cuando su stock es igual o menor a `minStock` (D5). Los movimientos no se editan ni se borran: un error se corrige con otro movimiento (D12).
+
+**Reglas que hace cumplir la propia base de datos** (además del código): cantidad distinta de cero; solo los ajustes llevan motivo y todos lo llevan; el stock inicial siempre es positivo; el motivo `OTHER` exige una nota con contenido.
+
+### Por qué está en 3FN
+
+- La clave primaria es un solo campo (`id`), así que se cumple 2FN.
+- Todos los campos describen al movimiento y dependen solo de su `id`. El nombre del producto y el nombre del usuario no se repiten acá: se guardan en Product y User y se llega a ellos con `productId` y `userId`.
+- El stock **no se guarda** (ni en Product ni en StockMovement): se calcula sumando, así no hay un dato derivado que pueda quedar desactualizado.
+- `reason` y `note` pueden estar vacíos según el tipo; eso es una regla de validez del movimiento (la base la controla), no una dependencia entre campos no clave.
+
+### Supuestos a confirmar (no están relevados)
+
+- Que un ajuste no pueda dejar el stock por debajo de cero (propuesta de Claude, ver D12-f).
+- Que el listado de motivos de ajuste sea exactamente el de D7.
+

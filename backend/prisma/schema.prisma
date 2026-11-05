@@ -19,15 +19,16 @@ model Category {
 // Producto del catálogo. El stock NO se guarda acá: se calcula desde los
 // movimientos de inventario (decisión D1 en docs/decisiones.md).
 model Product {
-  id         Int      @id @default(autoincrement())
-  name       String
-  categoryId Int
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  salePrice  Decimal  @db.Decimal(12, 2)
-  minStock   Int      @default(0)
-  active     Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id             Int             @id @default(autoincrement())
+  name           String
+  categoryId     Int
+  category       Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  salePrice      Decimal         @db.Decimal(12, 2)
+  minStock       Int             @default(0)
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  stockMovements StockMovement[]
 
   @@index([categoryId])
 }
@@ -35,14 +36,15 @@ model Product {
 // Persona que usa el sistema (por ahora, los propietarios). No hay roles: todos tienen los mismos permisos (D4).
 // La contraseña NUNCA se guarda: solo su hash (D9).
 model User {
-  id           Int       @id @default(autoincrement())
-  username     String    @unique
-  fullName     String
-  passwordHash String
-  active       Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  sessions     Session[]
+  id             Int             @id @default(autoincrement())
+  username       String          @unique
+  fullName       String
+  passwordHash   String
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  sessions       Session[]
+  stockMovements StockMovement[]
 }
 
 // Sesión abierta de un usuario. Se guarda el hash del código de la cookie, no el código (D9).
@@ -54,5 +56,38 @@ model Session {
   expiresAt DateTime
   createdAt DateTime @default(now())
 
+  @@index([userId])
+}
+
+// Tipos de movimiento de stock. Hoy solo hay carga inicial y ajuste manual;
+// ventas, anulaciones y compras agregan los suyos con sus módulos (D12).
+enum StockMovementType {
+  INITIAL_STOCK
+  ADJUSTMENT
+}
+
+// Motivo de un ajuste manual: lista fija (D7).
+enum AdjustmentReason {
+  PHYSICAL_COUNT
+  DAMAGE_OR_LOSS
+  SUPPLIER_RETURN
+  OTHER
+}
+
+// Un movimiento de stock: entra o sale mercadería de un producto. El stock es la suma de
+// `quantity` de sus movimientos (D1). Positivo = entrada, negativo = salida. No se edita ni se borra (D12).
+model StockMovement {
+  id        Int               @id @default(autoincrement())
+  productId Int
+  product   Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  type      StockMovementType
+  quantity  Int
+  reason    AdjustmentReason?
+  note      String?
+  userId    Int
+  user      User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt DateTime          @default(now())
+
+  @@index([productId, createdAt])
   @@index([userId])
 }

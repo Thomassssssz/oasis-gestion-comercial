@@ -23,5 +23,5 @@ export function createTestPrisma() {
 
 // Vacía las tablas antes de cada prueba. CASCADE y RESTART IDENTITY dejan todo como nuevo.
 export async function resetDatabase(prisma: ReturnType<typeof createTestPrisma>) {
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "Session", "User", "Product", "Category" RESTART IDENTITY CASCADE');
+  await prisma.$executeRawUnsafe('TRUNCATE TABLE "StockMovement", "Session", "User", "Product", "Category" RESTART IDENTITY CASCADE');
 }

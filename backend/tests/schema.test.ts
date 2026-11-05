@@ -72,4 +72,102 @@ describe("esquema de la base de datos", () => {
       prisma.session.create({ data: { tokenHash: "abc", userId: user.id, expiresAt: new Date() } }),
     ).rejects.toThrow();
   });
+
+  describe("movimientos de stock", () => {
+    // Crea un producto y un usuario para colgarles movimientos.
+    async function setup() {
+      const category = await prisma.category.create({ data: { name: "Papelería" } });
+      const product = await prisma.product.create({
+        data: { name: "Cuaderno", categoryId: category.id, salePrice: "10.00" },
+      });
+      const user = await prisma.user.create({ data: { username: "ana", fullName: "Ana", passwordHash: "x" } });
+      return { productId: product.id, userId: user.id };
+    }
+
+    it("guarda un ajuste con motivo y cantidad negativa", async () => {
+      const { productId, userId } = await setup();
+
+      const movement = await prisma.stockMovement.create({
+        data: { productId, userId, type: "ADJUSTMENT", quantity: -2, reason: "DAMAGE_OR_LOSS" },
+      });
+
+      expect(movement.quantity).toBe(-2);
+      expect(movement.createdAt).toBeInstanceOf(Date);
+    });
+
+    it("no permite un movimiento de un producto que no existe", async () => {
+      const { userId } = await setup();
+
+      await expect(
+        prisma.stockMovement.create({ data: { productId: 999, userId, type: "INITIAL_STOCK", quantity: 5 } }),
+      ).rejects.toThrow();
+    });
+
+    it("no permite un movimiento de un usuario que no existe", async () => {
+      const { productId } = await setup();
+
+      await expect(
+        prisma.stockMovement.create({ data: { productId, userId: 999, type: "INITIAL_STOCK", quantity: 5 } }),
+      ).rejects.toThrow();
+    });
+
+    it("no permite borrar un producto que tiene movimientos", async () => {
+      const { productId, userId } = await setup();
+      await prisma.stockMovement.create({ data: { productId, userId, type: "INITIAL_STOCK", quantity: 5 } });
+
+      await expect(prisma.product.delete({ where: { id: productId } })).rejects.toThrow();
+    });
+
+    it("no permite borrar un usuario que tiene movimientos (queda quién los hizo)", async () => {
+      const { productId, userId } = await setup();
+      await prisma.stockMovement.create({ data: { productId, userId, type: "INITIAL_STOCK", quantity: 5 } });
+
+      await expect(prisma.user.delete({ where: { id: userId } })).rejects.toThrow();
+    });
+
+    it("no permite un movimiento de cantidad cero", async () => {
+      const { productId, userId } = await setup();
+
+      await expect(
+        prisma.stockMovement.create({
+          data: { productId, userId, type: "ADJUSTMENT", quantity: 0, reason: "PHYSICAL_COUNT" },
+        }),
+      ).rejects.toThrow();
+    });
+
+    it("no permite un ajuste sin motivo", async () => {
+      const { productId, userId } = await setup();
+
+      await expect(
+        prisma.stockMovement.create({ data: { productId, userId, type: "ADJUSTMENT", quantity: 1 } }),
+      ).rejects.toThrow();
+    });
+
+    it("no permite un stock inicial con motivo de ajuste", async () => {
+      const { productId, userId } = await setup();
+
+      await expect(
+        prisma.stockMovement.create({
+          data: { productId, userId, type: "INITIAL_STOCK", quantity: 5, reason: "PHYSICAL_COUNT" },
+        }),
+      ).rejects.toThrow();
+    });
+
+    it("no permite un stock inicial negativo", async () => {
+      const { productId, userId } = await setup();
+
+      await expect(
+        prisma.stockMovement.create({ data: { productId, userId, type: "INITIAL_STOCK", quantity: -5 } }),
+      ).rejects.toThrow();
+    });
+
+    it("no permite el motivo 'otro' sin nota ni con la nota en blanco", async () => {
+      const { productId, userId } = await setup();
+      const data = { productId, userId, type: "ADJUSTMENT" as const, quantity: -1, reason: "OTHER" as const };
+
+      await expect(prisma.stockMovement.create({ data })).rejects.toThrow();
+      await expect(prisma.stockMovement.create({ data: { ...data, note: "   " } })).rejects.toThrow();
+      await expect(prisma.stockMovement.create({ data: { ...data, note: "Se mojó" } })).resolves.toBeTruthy();
+    });
+  });
 });
